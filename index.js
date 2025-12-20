@@ -10,18 +10,17 @@ app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// --- 1. PROFILES (Full Personalization) ---
+// --- 1. PROFILES ---
 app.get('/profile/:userId', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', req.params.userId).single();
   if (error && error.code === 'PGRST116') {
     const { data: newUser } = await supabase.from('profiles').insert([{ 
       id: req.params.userId, 
       username: 'User' + Math.floor(1000 + Math.random() * 9000),
-      avatar_url: '',
+      avatar_url: 'https://cdn.discordapp.com/embed/avatars/1.png',
       banner_url: '',
       status: 'online',
       status_text: '',
-      custom_theme: 'linear-gradient(180deg, #5865f2 0%, #313338 100%)'
     }]).select();
     return res.json(newUser[0]);
   }
@@ -29,8 +28,11 @@ app.get('/profile/:userId', async (req, res) => {
 });
 
 app.post('/update-profile', async (req, res) => {
-  const { userId, username, avatar_url, banner_url, status, status_text, custom_theme } = req.body;
-  await supabase.from('profiles').update({ username, avatar_url, banner_url, status, status_text, custom_theme }).eq('id', userId);
+  const { userId, username, avatar_url, banner_url, status, status_text } = req.body;
+  const { error } = await supabase.from('profiles').update({ 
+    username, avatar_url, banner_url, status, status_text 
+  }).eq('id', userId);
+  if (error) return res.status(500).json(error);
   res.json({ status: 'success' });
 });
 
@@ -66,36 +68,23 @@ app.get('/friends/:userId', async (req, res) => {
   res.json(data ? data.map(m => m.profiles) : []);
 });
 
-app.post('/add-friend', async (req, res) => {
-  const { userId, friendId } = req.body;
-  await supabase.from('friends').upsert([{ user_id: userId, friend_id: friendId }, { user_id: friendId, friend_id: userId }]);
-  res.json({ status: 'added' });
-});
-
-// --- 4. MESSAGES (Force Type Checking) ---
+// --- 4. MESSAGES ---
 app.get('/messages/:id', async (req, res) => {
   const isDM = req.query.type === 'dm';
   let q = supabase.from('messages').select('*').order('created_at', { ascending: true });
-  
-  if (isDM) {
-    q = q.eq('dm_room_id', req.params.id);
-  } else {
-    // Force integer check for channel IDs
-    const chanId = parseInt(req.params.id);
-    if (isNaN(chanId)) return res.json([]);
-    q = q.eq('channel_id', chanId);
-  }
-  
+  if (isDM) q = q.eq('dm_room_id', req.params.id);
+  else q = q.eq('channel_id', Number(req.params.id));
   const { data } = await q;
   res.json(data || []);
 });
 
 app.post('/messages', async (req, res) => {
   const { username, content, channel_id, dm_room_id, avatar_url } = req.body;
-  const payload = { username, content, avatar_url };
-  if (dm_room_id) payload.dm_room_id = dm_room_id;
-  else payload.channel_id = channel_id;
-  
+  const payload = { 
+    username, content, avatar_url,
+    channel_id: channel_id ? Number(channel_id) : null,
+    dm_room_id: dm_room_id || null
+  };
   await supabase.from('messages').insert([payload]);
   res.json({ status: 'ok' });
 });
