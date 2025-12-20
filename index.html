@@ -2,239 +2,147 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Clone - Complete</title>
+    <title>chat</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { 
-            --bg-darker: #1e1f22; 
-            --bg-dark: #2b2d31; 
-            --bg-main: #313338; 
-            --brand: #5865f2; 
-            --text: #dbdee1; 
-            --text-muted: #949ba4;
-        }
-        body { 
-            margin: 0; display: grid; grid-template-columns: 72px 240px 1fr; 
-            height: 100vh; background: var(--bg-main); color: var(--text); 
-            font-family: sans-serif; overflow: hidden;
-        }
-
-        /* Server Rail (Leftmost) */
-        .rail { background: var(--bg-darker); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid #1a1b1e; }
-        .server-icon { 
-            width: 48px; height: 48px; background: #313338; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; cursor: pointer; 
-            transition: 0.2s; font-weight: bold; overflow: hidden;
-        }
-        .server-icon:hover { border-radius: 15px; background: var(--brand); color: white; }
-
-        /* Sidebar (Channels/DMs) */
-        .sidebar { background: var(--bg-dark); display: flex; flex-direction: column; position: relative; border-right: 1px solid #232428; }
-        .sidebar-header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1e1f22; }
-        .channel-list { padding: 10px; flex: 1; }
-        .channel-item { padding: 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
-        .channel-item:hover { background: #35373c; color: var(--text); }
-        
-        /* User Panel (Bottom of Sidebar) */
-        .user-panel { 
-            position: absolute; bottom: 0; width: 100%; padding: 10px; 
-            background: #232428; display: flex; align-items: center; gap: 10px; box-sizing: border-box;
-        }
-
-        /* Chat Area */
-        .chat { display: flex; flex-direction: column; height: 100vh; }
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .input-area { padding: 20px; background: var(--bg-main); }
-        input[type="text"] { 
-            width: 100%; padding: 12px; border-radius: 8px; border: none; 
-            background: #383a40; color: white; outline: none; box-sizing: border-box;
-        }
-
-        /* Overlays */
-        #auth-overlay { 
-            position: fixed; inset: 0; background: var(--bg-main); z-index: 1000; 
-            display: flex; align-items: center; justify-content: center; 
-        }
-        .auth-card { background: var(--bg-dark); padding: 40px; border-radius: 8px; text-align: center; width: 350px; }
-        .auth-input { width: 100%; padding: 10px; margin: 10px 0; background: #1e1f22; border: none; color: white; border-radius: 4px; }
-        .auth-btn { width: 100%; padding: 10px; background: var(--brand); border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        :root { --bg-rail: #1e1f22; --bg-side: #2b2d31; --bg-chat: #313338; --brand: #5865f2; --text: #dbdee1; }
+        body { margin: 0; display: grid; grid-template-columns: 72px 240px 1fr; height: 100vh; background: var(--bg-chat); color: var(--text); font-family: sans-serif; }
+        .rail { background: var(--bg-rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; }
+        .side { background: var(--bg-side); position: relative; display: flex; flex-direction: column; }
+        .chat { display: flex; flex-direction: column; }
+        #msgs { flex: 1; padding: 20px; overflow-y: auto; }
+        .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .icon:hover { border-radius: 15px; background: var(--brand); }
+        .item { padding: 10px; cursor: pointer; border-radius: 4px; margin: 2px 8px; color: #949ba4; }
+        .item:hover { background: #35373c; color: white; }
+        input { width: 90%; padding: 12px; margin: 20px; background: #383a40; border: none; color: white; border-radius: 8px; }
+        #auth { position: fixed; inset: 0; background: var(--bg-chat); z-index: 100; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-<div id="auth-overlay">
-    <div class="auth-card">
-        <h2>Welcome back!</h2>
-        <input type="email" id="email" placeholder="Email" class="auth-input">
-        <input type="password" id="password" placeholder="Password" class="auth-input">
-        <button onclick="handleAuth()" class="auth-btn">Login / Register</button>
+<div id="auth">
+    <div style="background: var(--bg-side); padding: 40px; border-radius: 8px; text-align: center;">
+        <input type="email" id="email" placeholder="Email"><br>
+        <input type="password" id="pass" placeholder="Password"><br>
+        <button onclick="handleAuth()" style="background: var(--brand); color: white; border: none; padding: 10px 40px; cursor: pointer; border-radius: 4px; margin-top: 10px;">Login</button>
     </div>
 </div>
 
 <div class="rail" id="server-rail">
-    <div class="server-icon" onclick="showDMs()">DM</div>
+    <div class="icon" onclick="showFriends()">DM</div>
     <div style="width:32px; height:2px; background:#35373c;"></div>
-    <div id="dynamic-servers"></div>
-    <div class="server-icon" onclick="createNewServer()" style="color: #23a55a;">+</div>
+    <div id="servers-list"></div>
+    <div class="icon" onclick="addServer()" style="color:#23a55a">+</div>
 </div>
 
-<div class="sidebar">
-    <div class="sidebar-header" id="sidebar-title">Direct Messages</div>
-    <div class="channel-list" id="channel-list">
-        <div class="channel-item">Friends will appear here...</div>
-    </div>
-    <div class="user-panel">
-        <div style="width:32px; height:32px; background:var(--brand); border-radius:50%;"></div>
-        <div id="display-name" onclick="changeUsername()" style="cursor:pointer; font-weight:bold; font-size:14px;">Loading...</div>
-    </div>
+<div class="side">
+    <div id="side-header" style="padding:15px; font-weight:bold; border-bottom:1px solid #1e1f22;">DMs</div>
+    <div id="side-content" style="flex:1"></div>
+    <div style="padding:10px; background:#232428; cursor:pointer" onclick="editName()" id="u-name">Loading...</div>
 </div>
 
 <div class="chat">
-    <div id="messages"></div>
-    <div class="input-area">
-        <input type="text" id="msgInput" placeholder="Message..." onkeypress="if(event.key==='Enter') send()">
-    </div>
+    <div id="msgs"></div>
+    <input type="text" id="mIn" placeholder="Message..." onkeypress="if(event.key==='Enter') send()">
 </div>
 
 <script>
-    // --- CONFIGURATION ---
     const API = "https://chat-8jat.onrender.com";
-    const _supabase = supabase.createClient("https://rqyejvulyycmlcqzwoqc.supabase.co/", "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-");
+    const _sb = supabase.createClient("https://rqyejvulyycmlcqzwoqc.supabase.co/", "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-");
     
-    let user = null, profile = null, activeChannel = null;
+    let user, profile, activeChan, activeDM;
 
-    // --- 1. AUTHENTICATION (SILENT LOGIN FIX) ---
-    _supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
-            user = session.user;
-            document.getElementById('auth-overlay').style.display = 'none';
-            
-            // Get user profile (username)
-            const pRes = await fetch(`${API}/profile/${user.id}`);
-            profile = await pRes.json();
-            
-            document.getElementById('display-name').innerText = profile.username;
+    _sb.auth.onAuthStateChange(async (ev, sess) => {
+        if (sess) {
+            user = sess.user;
+            document.getElementById('auth').style.display = 'none';
+            const r = await fetch(`${API}/profile/${user.id}`);
+            profile = await r.json();
+            document.getElementById('u-name').innerText = profile.username;
+            showFriends();
             loadServers();
-        } else {
-            document.getElementById('auth-overlay').style.display = 'flex';
         }
     });
 
     async function handleAuth() {
-        const email = document.getElementById('email').value.trim(); // TRIM FIX
-        const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-            const signup = await _supabase.auth.signUp({ email, password });
-            if (signup.error) return alert(signup.error.message);
+        const email = document.getElementById('email').value.trim();
+        const pass = document.getElementById('pass').value;
+        const { error } = await _sb.auth.signInWithPassword({ email, password: pass });
+        if (error) await _sb.auth.signUp({ email, password: pass });
+    }
+
+    async function editName() {
+        const n = prompt("New Username:");
+        if (n) {
+            await fetch(`${API}/update-username`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: user.id, username: n}) });
+            document.getElementById('u-name').innerText = n;
+            profile.username = n;
         }
     }
 
-    // --- 2. PROFILE & SETTINGS ---
-    async function changeUsername() {
-        const newName = prompt("Enter new username:");
-        if (!newName) return;
-        
-        const res = await fetch(`${API}/update-username`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: user.id, username: newName })
-        });
-
-        if (res.ok) {
-            profile.username = newName;
-            document.getElementById('display-name').innerText = newName;
-        }
-    }
-
-    // --- 3. SERVERS & CHANNELS ---
     async function loadServers() {
         const res = await fetch(`${API}/my-servers/${user.id}`);
-        const servers = await res.json();
-        const container = document.getElementById('dynamic-servers');
-        
-        container.innerHTML = "";
-        servers.forEach(s => {
-            const btn = document.createElement('div');
-            btn.className = 'server-icon';
-            btn.innerText = s.name[0].toUpperCase();
-            btn.onclick = () => selectServer(s);
-            container.appendChild(btn);
-        });
+        const data = await res.json();
+        document.getElementById('servers-list').innerHTML = data.map(s => `<div class="icon" onclick="openServer(${s.id}, '${s.name}')">${s.name[0]}</div>`).join('');
     }
 
-    async function createNewServer() {
-        const name = prompt("Server Name:");
-        if (!name) return;
-        const res = await fetch(`${API}/servers`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, owner_id: user.id })
-        });
-        if (res.ok) loadServers();
+    async function addServer() {
+        const n = prompt("Server Name:");
+        if (n) {
+            await fetch(`${API}/servers`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: n, owner_id: user.id}) });
+            loadServers();
+        }
     }
 
-    async function selectServer(server) {
-        document.getElementById('sidebar-title').innerText = server.name;
-        const res = await fetch(`${API}/channels/${server.id}`);
-        const channels = await res.json();
-        
-        const list = document.getElementById('channel-list');
-        list.innerHTML = channels.map(c => `
-            <div class="channel-item" onclick="setActiveChannel(${c.id}, '${c.name}')"># ${c.name}</div>
-        `).join('');
+    async function openServer(id, name) {
+        activeDM = null;
+        document.getElementById('side-header').innerText = name;
+        const res = await fetch(`${API}/channels/${id}`);
+        const chans = await res.json();
+        document.getElementById('side-content').innerHTML = chans.map(c => `<div class="item" onclick="activeChan=${c.id}; refresh()"># ${c.name}</div>`).join('');
     }
 
-    function setActiveChannel(id, name) {
-        activeChannel = id;
-        document.getElementById('msgInput').placeholder = `Message #${name}`;
-        refreshMessages();
+    async function showFriends() {
+        activeChan = null;
+        document.getElementById('side-header').innerHTML = `Friends <button onclick="findFriend()" style="float:right">+</button>`;
+        const res = await fetch(`${API}/my-friends/${user.id}`);
+        const data = await res.json();
+        document.getElementById('side-content').innerHTML = data.map(f => `<div class="item" onclick="startDM('${f.id}', '${f.username}')">👤 ${f.username}</div>`).join('');
     }
 
-    function showDMs() {
-        activeChannel = null;
-        document.getElementById('sidebar-title').innerText = "Direct Messages";
-        document.getElementById('channel-list').innerHTML = '<div class="channel-item">Friends will appear here...</div>';
-        document.getElementById('messages').innerHTML = "<h3>Welcome to your DMs!</h3>";
+    async function findFriend() {
+        const n = prompt("Friend's Username:");
+        const s = await fetch(`${API}/search-user/${n}`);
+        const target = await s.json();
+        if (target.id) await fetch(`${API}/friend-request`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: user.id, friend_id: target.id}) });
+        showFriends();
     }
 
-    // --- 4. MESSAGES ---
-    async function refreshMessages() {
-        if (!activeChannel) return;
-        const res = await fetch(`${API}/messages/${activeChannel}`);
-        const msgs = await res.json();
-        const container = document.getElementById('messages');
-        
-        container.innerHTML = msgs.map(m => `
-            <div>
-                <b style="color:var(--brand);">${m.username}</b>: 
-                <span>${m.content}</span>
-            </div>
-        `).join('');
-        container.scrollTop = container.scrollHeight;
+    async function startDM(fid, fname) {
+        const r = await fetch(`${API}/get-dm-room`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: user.id, friend_id: fid}) });
+        const room = await r.json();
+        activeDM = room.id;
+        document.getElementById('mIn').placeholder = `Message @${fname}`;
+        refresh();
+    }
+
+    async function refresh() {
+        const id = activeChan || activeDM;
+        if (!id) return;
+        const res = await fetch(`${API}/messages/${id}?type=${activeDM ? 'dm' : 'chan'}`);
+        const data = await res.json();
+        document.getElementById('msgs').innerHTML = data.map(m => `<div><b>${m.username}</b>: ${m.content}</div>`).join('');
     }
 
     async function send() {
-        const input = document.getElementById('msgInput');
-        if (!input.value || !activeChannel) return;
-        
-        await fetch(`${API}/messages`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                username: profile.username, 
-                content: input.value, 
-                channel_id: activeChannel 
-            })
-        });
-        input.value = '';
-        refreshMessages();
+        const i = document.getElementById('mIn');
+        if (!i.value) return;
+        await fetch(`${API}/messages`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: profile.username, content: i.value, channel_id: activeChan, dm_room_id: activeDM}) });
+        i.value = ''; refresh();
     }
 
-    // Auto-refresh messages every 3 seconds
-    setInterval(refreshMessages, 3000);
-
+    setInterval(refresh, 3000);
 </script>
 </body>
 </html>
