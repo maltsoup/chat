@@ -3,69 +3,54 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-// 1. Setup Middleware
-app.use(cors()); 
+app.use(cors());
 app.use(express.json());
 
-// 2. Connect to Supabase
-// These must be set in your Render Environment Variables
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Connect to Supabase
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// 3. Health Check for UptimeRobot
-app.get('/ping', (req, res) => {
-  res.status(200).send('Awake');
+// --- SERVER ROUTES ---
+
+// 1. Get all servers
+app.get('/servers', async (req, res) => {
+  const { data, error } = await supabase.from('servers').select('*');
+  if (error) return res.status(400).json(error);
+  res.json(data);
 });
 
-// 4. API: Get messages (Now includes logic to show who sent what)
+// 2. Create a new server
+app.post('/servers', async (req, res) => {
+  const { name } = req.body; // owner_id is handled by auth.uid() in Supabase
+  const { data, error } = await supabase.from('servers').insert([{ name }]).select();
+  if (error) return res.status(400).json(error);
+  res.json(data);
+});
+
+// --- MESSAGE ROUTES ---
+
+// 3. Get messages (Updated to support server filtering later)
 app.get('/messages', async (req, res) => {
   const { data, error } = await supabase
     .from('messages')
     .select('*')
     .order('created_at', { ascending: true });
-
-  if (error) {
-    console.error("Fetch Error:", error);
-    return res.status(400).json(error);
-  }
+  if (error) return res.status(400).json(error);
   res.json(data);
 });
 
-/**
- * 5. API: Send a message
- * We expect the frontend to send the user's email 
- * after they successfully log in via Supabase Auth.
- */
+// 4. Send a message
 app.post('/messages', async (req, res) => {
-  const { username, content, avatar_url } = req.body;
-
-  if (!content) {
-    return res.status(400).json({ error: "Message content is required" });
-  }
-
+  const { username, content } = req.body;
   const { data, error } = await supabase
     .from('messages')
-    .insert([
-      { 
-        username: username || 'Guest', 
-        content: content,
-        avatar_url: avatar_url || 'https://cdn.discordapp.com/embed/avatars/0.png' 
-      }
-    ]);
-
-  if (error) {
-    console.error("Insert Error:", error);
-    return res.status(400).json(error);
-  }
-
-  res.json({ status: 'Message Sent!', data });
+    .insert([{ username, content }]);
+  if (error) return res.status(400).json(error);
+  res.json(data);
 });
 
-// 6. Start the Server
-app.listen(PORT, () => {
-  console.log(`Discord API running on port ${PORT}`);
+// Health check for UptimeRobot
+app.get('/ping', (req, res) => res.send('Awake'));
+
+app.listen(process.env.PORT || 10000, () => {
+  console.log("API is live and multi-server ready!");
 });
