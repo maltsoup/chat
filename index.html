@@ -5,62 +5,46 @@
     <title>Discord Clone</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --rail: #1e1f22; --side: #2b2d31; --chat: #313338; --brand: #5865f2; --text: #dbdee1; --danger: #f23f43; }
-        body { margin: 0; font-family: sans-serif; display: grid; grid-template-columns: 72px 240px 1fr; height: 100vh; background: var(--chat); color: var(--text); overflow: hidden; }
+        :root { --rail: #1e1f22; --side: #2b2d31; --chat: #313338; --brand: #5865f2; --text: #dbdee1; }
+        body { margin: 0; font-family: sans-serif; display: grid; grid-template-columns: 72px 240px 1fr 200px; height: 100vh; background: var(--chat); color: var(--text); overflow: hidden; }
         
-        /* Auth */
-        #auth-screen { position: fixed; inset: 0; background: #313338; z-index: 5000; display: flex; align-items: center; justify-content: center; background-image: url('https://discord.com/assets/652f404f274e28ef0504.png'); background-size: cover; }
-        .auth-box { background: #313338; padding: 32px; border-radius: 8px; width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
-        .auth-box input { width: 100%; padding: 12px; margin: 8px 0; background: #1e1f22; border: 1px solid #111; color: white; border-radius: 4px; box-sizing: border-box; }
+        /* Layout Fixes */
+        .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; }
+        .side { background: var(--side); position: relative; display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; }
+        .members-list { background: var(--side); border-left: 1px solid #1a1b1e; padding: 20px 10px; font-size: 14px; }
+        
+        /* Chat logic - Pushes input to bottom */
+        .chat { display: flex; flex-direction: column; height: 100vh; position: relative; }
+        #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg-in { padding: 0 20px 20px 20px; background: var(--chat); }
+        .msg-in input { width: 100%; padding: 12px; background: #383a40; border: none; color: white; border-radius: 8px; box-sizing: border-box; }
 
-        /* Rail & Sidebar */
-        .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid #1a1b1e; }
-        .side { background: var(--side); position: relative; display: flex; flex-direction: column; }
-        .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: 0.2s; color: #23a55a; }
+        .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #23a55a; transition: 0.2s; }
         .icon:hover { border-radius: 15px; background: #23a55a; color: white; }
         .server-icon { color: var(--text); }
         .server-icon:hover { background: var(--brand); }
         
-        /* Popups */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; }
-        .modal-content { background: var(--chat); padding: 30px; border-radius: 8px; width: 400px; text-align: center; }
-        
-        #context-menu { position: fixed; display: none; background: #111214; width: 180px; border-radius: 4px; padding: 6px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); z-index: 3000; }
-        .menu-item { padding: 10px; cursor: pointer; border-radius: 2px; font-size: 14px; }
-        .menu-item:hover { background: var(--brand); color: white; }
-
-        .item { padding: 10px; margin: 2px 8px; cursor: pointer; border-radius: 4px; color: #949ba4; display: flex; justify-content: space-between; }
+        #auth-screen { position: fixed; inset: 0; background: #313338; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .item { padding: 10px; margin: 2px 8px; cursor: pointer; border-radius: 4px; color: #949ba4; }
         .item:hover { background: #35373c; color: white; }
-        #msgs { flex: 1; padding: 20px; overflow-y: auto; }
-        .msg-in input { width: 95%; padding: 14px; margin: 15px; background: #383a40; border: none; color: white; border-radius: 8px; }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 5000; align-items: center; justify-content: center; }
+        #context-menu { position: fixed; display: none; background: #111214; width: 180px; border-radius: 4px; padding: 6px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); z-index: 6000; }
     </style>
 </head>
 <body>
 
 <div id="auth-screen">
-    <div class="auth-box">
-        <h2 style="color:white">Welcome back!</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="pass" placeholder="Password">
-        <button onclick="handleAuth()" style="width:100%; padding:12px; background:var(--brand); border:none; color:white; font-weight:bold; border-radius:4px; cursor:pointer">Log In</button>
+    <div style="background:#313338; padding:30px; border-radius:8px; width:350px; text-align:center;">
+        <h2>Discord</h2>
+        <input type="email" id="email" placeholder="Email" style="width:100%; padding:10px; margin:5px 0; background:#1e1f22; border:none; color:white;">
+        <input type="password" id="pass" placeholder="Password" style="width:100%; padding:10px; margin:5px 0; background:#1e1f22; border:none; color:white;">
+        <button onclick="handleAuth()" style="width:100%; padding:10px; background:var(--brand); border:none; color:white; margin-top:10px; cursor:pointer;">Login</button>
     </div>
-</div>
-
-<div id="server-modal" class="modal" onclick="this.style.display='none'">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <h3>Create or Join a Server</h3>
-        <button onclick="addServer()" style="width:100%; padding:15px; background:var(--brand); color:white; border:none; margin-bottom:10px; border-radius:4px; cursor:pointer">Create a Server</button>
-        <button onclick="joinServer()" style="width:100%; padding:15px; background:#4e5058; color:white; border:none; border-radius:4px; cursor:pointer">Join a Server</button>
-    </div>
-</div>
-
-<div id="context-menu">
-    <div class="menu-item" onclick="copyInvite()">Invite People</div>
-    <div class="menu-item" style="color:var(--danger)" id="ctx-action" onclick="handleServerAction()">Delete Server</div>
 </div>
 
 <div class="rail">
-    <div class="icon server-icon" onclick="showDMs()" style="color:white">DM</div>
+    <div class="icon server-icon" onclick="showDMs()">DM</div>
     <div style="width:32px; height:2px; background:#35373c;"></div>
     <div id="server-list"></div>
     <div class="icon" onclick="document.getElementById('server-modal').style.display='flex'">+</div>
@@ -69,10 +53,10 @@
 <div class="side">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #1e1f22; display:flex; justify-content:space-between;">
         <span id="side-title">DMs</span>
-        <span id="add-chan-btn" style="cursor:pointer; display:none" onclick="createChannel()">+</span>
+        <span id="add-btn" style="cursor:pointer" onclick="createChannel()">+</span>
     </div>
     <div id="side-content" style="flex:1"></div>
-    <div style="padding:10px; background:#232428; display:flex; gap:10px; align-items:center; cursor:pointer" onclick="openSettings()">
+    <div style="padding:10px; background:#232428; display:flex; align-items:center; gap:10px; cursor:pointer" onclick="editProfile()">
         <div style="width:32px; height:32px; background:var(--brand); border-radius:50%"></div>
         <div id="u-display" style="font-weight:bold; font-size:13px">Loading...</div>
     </div>
@@ -83,11 +67,23 @@
     <div class="msg-in"><input type="text" id="mIn" placeholder="Message..." onkeypress="if(event.key==='Enter') send()"></div>
 </div>
 
+<div class="members-list">
+    <div style="font-size:12px; font-weight:bold; color:#949ba4; margin-bottom:10px;">MEMBERS</div>
+    <div id="member-content"></div>
+</div>
+
+<div id="server-modal" class="modal" onclick="this.style.display='none'">
+    <div style="background:var(--chat); padding:20px; border-radius:8px; width:300px;" onclick="event.stopPropagation()">
+        <button onclick="addServer()" style="width:100%; padding:10px; margin-bottom:10px;">Create Server</button>
+        <button onclick="joinServer()" style="width:100%; padding:10px;">Join Server</button>
+    </div>
+</div>
+
 <script>
     const API = "https://chat-8jat.onrender.com";
     const _sb = supabase.createClient("https://rqyejvulyycmlcqzwoqc.supabase.co/", "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-");
     
-    let user, profile, activeChan, activeDM, activeServerId, rightClickedServer;
+    let user, profile, activeChan, activeDM, activeServer;
 
     _sb.auth.onAuthStateChange(async (ev, sess) => {
         if (sess) {
@@ -101,50 +97,50 @@
     });
 
     async function handleAuth() {
-        const e = document.getElementById('email').value.trim();
-        const p = document.getElementById('pass').value;
-        const { error } = await _sb.auth.signInWithPassword({ email: e, password: p });
-        if (error) await _sb.auth.signUp({ email: e, password: p });
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('pass').value;
+        const { error } = await _sb.auth.signInWithPassword({ email, password });
+        if (error) await _sb.auth.signUp({ email, password });
     }
 
     async function loadServers() {
         const res = await fetch(`${API}/my-servers/${user.id}`);
         const data = await res.json();
         document.getElementById('server-list').innerHTML = data.map(s => `
-            <div class="icon server-icon" onclick="openServer(${s.id}, '${s.name}')" oncontextmenu="showCtx(event, ${s.id}, '${s.owner_id}')">${s.name[0].toUpperCase()}</div>
+            <div class="icon server-icon" onclick="openServer(${s.id}, '${s.name}')">${s.name[0].toUpperCase()}</div>
         `).join('');
     }
 
     async function openServer(id, name) {
-        activeServerId = id; activeDM = null; 
+        activeServer = id; activeDM = null; activeChan = null;
         document.getElementById('side-title').innerText = name;
-        document.getElementById('add-chan-btn').style.display = 'block';
-        const res = await fetch(`${API}/channels/${id}`);
-        const chans = await res.json();
-        document.getElementById('side-content').innerHTML = chans.map(c => `
-            <div class="item" onclick="setChannel(${c.id}, '${c.name}')"># ${c.name}</div>
-        `).join('');
-        if (chans.length > 0) setChannel(chans[0].id, chans[0].name);
+        document.getElementById('msgs').innerHTML = ""; // Clear chat
+        
+        // Load Channels
+        const cRes = await fetch(`${API}/channels/${id}`);
+        const chans = await cRes.json();
+        document.getElementById('side-content').innerHTML = chans.map(c => `<div class="item" onclick="selectChan(${c.id}, '${c.name}')"># ${c.name}</div>`).join('');
+        
+        // Load Members
+        const mRes = await fetch(`${API}/server-members/${id}`);
+        const mems = await mRes.json();
+        document.getElementById('member-content').innerHTML = mems.map(m => `<div style="padding:5px">🟢 ${m.username}</div>`).join('');
+        
+        if (chans.length > 0) selectChan(chans[0].id, chans[0].name);
     }
 
-    function setChannel(id, name) {
+    function selectChan(id, name) {
         activeChan = id; activeDM = null;
         document.getElementById('mIn').placeholder = `Message #${name}`;
         refresh();
     }
 
-    async function createChannel() {
-        const n = prompt("Channel Name:");
-        if (n) {
-            await fetch(`${API}/channels`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name: n, server_id: activeServerId}) });
-            openServer(activeServerId, document.getElementById('side-title').innerText);
-        }
-    }
-
     async function showDMs() {
-        activeChan = null; activeServerId = null;
+        activeChan = null; activeDM = null; activeServer = null;
         document.getElementById('side-title').innerText = "Direct Messages";
-        document.getElementById('add-chan-btn').style.display = 'none';
+        document.getElementById('msgs').innerHTML = "<h3>Select a friend to start chatting!</h3>";
+        document.getElementById('member-content').innerHTML = "";
+        
         const res = await fetch(`${API}/my-friends/${user.id}`);
         const data = await res.json();
         document.getElementById('side-content').innerHTML = data.map(f => `
@@ -154,7 +150,8 @@
 
     async function startDM(fid, fname) {
         const r = await fetch(`${API}/get-dm-room`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: user.id, friend_id: fid}) });
-        const room = await r.json(); activeDM = room.id; activeChan = null;
+        const room = await r.json();
+        activeDM = room.id; activeChan = null;
         document.getElementById('mIn').placeholder = `Message @${fname}`;
         refresh();
     }
@@ -164,9 +161,7 @@
         if (!id) return;
         const res = await fetch(`${API}/messages/${id}?type=${activeDM ? 'dm' : 'chan'}`);
         const msgs = await res.json();
-        document.getElementById('msgs').innerHTML = msgs.map(m => `
-            <div style="margin-bottom:8px"><b>${m.username}</b>: ${m.content}</div>
-        `).join('');
+        document.getElementById('msgs').innerHTML = msgs.map(m => `<div><b>${m.username}</b>: ${m.content}</div>`).join('');
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     }
 
@@ -177,29 +172,12 @@
         i.value = ''; refresh();
     }
 
-    function showCtx(e, id, oid) {
-        e.preventDefault(); rightClickedServer = id;
-        const menu = document.getElementById('context-menu');
-        menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
-        document.getElementById('ctx-action').innerText = (oid === user.id) ? "Delete Server" : "Leave Server";
-    }
-
-    async function handleServerAction() {
-        const isDel = document.getElementById('ctx-action').innerText === "Delete Server";
-        await fetch(isDel ? `${API}/servers/${rightClickedServer}` : `${API}/leave-server`, { 
-            method: isDel ? 'DELETE' : 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({userId: user.id, server_id: rightClickedServer, user_id: user.id}) 
-        });
-        loadServers(); showDMs();
-    }
-
-    function copyInvite() { navigator.clipboard.writeText(rightClickedServer); alert("Server ID Copied! Give this to your friends."); }
-    function addServer() { const n = prompt("Name:"); if(n) fetch(`${API}/servers`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:n, owner_id:user.id})}).then(()=>loadServers()); }
+    // Helper functions
+    function addServer() { const n = prompt("Server Name:"); if(n) fetch(`${API}/servers`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:n, owner_id:user.id})}).then(()=>loadServers()); }
     function joinServer() { const id = prompt("Server ID:"); if(id) fetch(`${API}/join-server`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({server_id:id, user_id:user.id})}).then(()=>loadServers()); }
-    function openSettings() { const n = prompt("New Username:", profile.username); if(n) fetch(`${API}/update-username`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user.id, username:n})}).then(()=>location.reload()); }
-    
-    window.onclick = () => { document.getElementById('context-menu').style.display = 'none'; };
+    function editProfile() { const n = prompt("New Username:", profile.username); if(n) fetch(`${API}/update-username`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:user.id, username:n})}).then(()=>location.reload()); }
+    function createChannel() { if(!activeServer) return; const n = prompt("Channel Name:"); if(n) fetch(`${API}/channels`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:n, server_id:activeServer})}).then(()=>openServer(activeServer, "")); }
+
     setInterval(refresh, 3000);
 </script>
 </body>
