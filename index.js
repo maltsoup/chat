@@ -10,14 +10,11 @@ app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// --- 1. PROFILES & USERNAMES ---
+// --- PROFILES ---
 app.get('/profile/:userId', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', req.params.userId).single();
   if (error && error.code === 'PGRST116') {
-    const { data: newUser } = await supabase.from('profiles').insert([{ 
-      id: req.params.userId, 
-      username: 'User_' + Math.floor(Math.random()*1000) 
-    }]).select();
+    const { data: newUser } = await supabase.from('profiles').insert([{ id: req.params.userId, username: 'User' + Math.floor(1000 + Math.random() * 9000) }]).select();
     return res.json(newUser[0]);
   }
   res.json(data);
@@ -26,15 +23,10 @@ app.get('/profile/:userId', async (req, res) => {
 app.post('/update-username', async (req, res) => {
   const { userId, username } = req.body;
   await supabase.from('profiles').update({ username }).eq('id', userId);
-  res.json({ status: 'updated' });
+  res.json({ status: 'success' });
 });
 
-// --- 2. SERVERS & CHANNELS ---
-app.get('/my-servers/:userId', async (req, res) => {
-  const { data } = await supabase.from('server_members').select('servers(*)').eq('user_id', req.params.userId);
-  res.json(data ? data.map(m => m.servers) : []);
-});
-
+// --- SERVERS ---
 app.post('/servers', async (req, res) => {
   const { name, owner_id } = req.body;
   const { data } = await supabase.from('servers').insert([{ name, owner_id }]).select();
@@ -44,27 +36,39 @@ app.post('/servers', async (req, res) => {
   res.json(server);
 });
 
-app.get('/channels/:serverId', async (req, res) => {
-  const { data } = await supabase.from('channels').select('*').eq('server_id', req.params.serverId);
-  res.json(data);
+app.post('/join-server', async (req, res) => {
+  const { server_id, user_id } = req.body;
+  const { error } = await supabase.from('server_members').insert([{ server_id, user_id }]);
+  if (error) return res.status(400).json({ error: "Already a member or invalid ID" });
+  res.json({ status: 'joined' });
 });
 
-// --- 3. FRIENDS & DMs ---
-app.get('/search-user/:username', async (req, res) => {
-  const { data, error } = await supabase.from('profiles').select('id, username').eq('username', req.params.username).single();
-  if (error) return res.status(404).json({ error: "Not found" });
-  res.json(data);
+app.get('/my-servers/:userId', async (req, res) => {
+  const { data } = await supabase.from('server_members').select('servers(*)').eq('user_id', req.params.userId);
+  res.json(data ? data.map(m => m.servers) : []);
 });
 
-app.post('/friend-request', async (req, res) => {
-  const { user_id, friend_id } = req.body;
-  await supabase.from('friends').insert([{ user_id, friend_id }]);
-  res.json({ status: 'sent' });
+app.delete('/servers/:serverId', async (req, res) => {
+  const { userId } = req.body;
+  const { data: server } = await supabase.from('servers').select('owner_id').eq('id', req.params.serverId).single();
+  if (server && server.owner_id === userId) {
+    await supabase.from('servers').delete().eq('id', req.params.serverId);
+    res.json({ status: 'deleted' });
+  } else {
+    res.status(403).json({ error: "Unauthorized" });
+  }
 });
 
+app.post('/leave-server', async (req, res) => {
+  const { server_id, user_id } = req.body;
+  await supabase.from('server_members').delete().eq('server_id', server_id).eq('user_id', user_id);
+  res.json({ status: 'left' });
+});
+
+// --- FRIENDS & DMs ---
 app.get('/my-friends/:userId', async (req, res) => {
-  const { data } = await supabase.from('friends').select('friend_id, profiles!friends_friend_id_fkey(*)').eq('user_id', req.params.userId);
-  res.json(data ? data.map(f => f.profiles) : []);
+    const { data } = await supabase.from('friends').select('profiles:friend_id(id, username)').eq('user_id', req.params.userId);
+    res.json(data ? data.map(f => f.profiles) : []);
 });
 
 app.post('/get-dm-room', async (req, res) => {
@@ -78,11 +82,11 @@ app.post('/get-dm-room', async (req, res) => {
   res.json(room);
 });
 
-// --- 4. MESSAGES ---
+// --- MESSAGES ---
 app.get('/messages/:id', async (req, res) => {
-  const isDM = req.query.type === 'dm';
+  const type = req.query.type;
   const query = supabase.from('messages').select('*').order('created_at', { ascending: true });
-  isDM ? query.eq('dm_room_id', req.params.id) : query.eq('channel_id', req.params.id);
+  type === 'dm' ? query.eq('dm_room_id', req.params.id) : query.eq('channel_id', req.params.id);
   const { data } = await query;
   res.json(data || []);
 });
@@ -93,5 +97,4 @@ app.post('/messages', async (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/ping', (req, res) => res.send('Online'));
-app.listen(PORT);
+app.listen(PORT, () => console.log('Server Live'));
