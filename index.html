@@ -1,244 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Discord Clone - Pro</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        :root { --rail: #1e1f22; --side: #2b2d31; --chat: #313338; --brand: #5865f2; --text: #dbdee1; --muted: #949ba4; --danger: #f23f43; --footer: #232428; }
-        body { margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: grid; grid-template-columns: 72px 240px 1fr 240px; height: 100vh; background: var(--chat); color: var(--text); overflow: hidden; }
-        
-        /* Layout Fixes */
-        .rail { background: var(--rail); display: flex; flex-direction: column; padding: 12px 0; gap: 8px; align-items: center; border-right: 1px solid #111; z-index: 10; }
-        .side { background: var(--side); display: flex; flex-direction: column; position: relative; border-right: 1px solid #111; overflow: hidden; }
-        .chat { display: flex; flex-direction: column; height: 100vh; background: var(--chat); min-width: 0; }
-        .members-sidebar { background: var(--side); padding: 20px 10px; border-left: 1px solid #111; overflow-y: auto; }
-
-        /* Icons & Sidebar Items */
-        .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #23a55a; transition: 0.2s; background-size: cover; background-position: center; }
-        .icon:hover { border-radius: 15px; background: #23a55a; color: white; }
-        .item { padding: 8px 10px; margin: 2px 8px; cursor: pointer; border-radius: 4px; color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .item:hover { background: #35373c; color: white; }
-
-        /* Discord Tray Fix */
-        .user-footer { background: var(--footer); padding: 8px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: absolute; bottom: 0; width: 100%; box-sizing: border-box; }
-        .footer-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; padding: 4px; border-radius: 4px; }
-        .footer-info:hover { background: #3f4147; }
-        .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); flex-shrink: 0; background-size: cover; background-position: center; position: relative; }
-        .status-dot { width: 10px; height: 10px; background: #23a55a; border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid var(--footer); }
-        .footer-name { font-weight: bold; font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .footer-subtext { font-size: 11px; color: var(--muted); }
-
-        /* Chat Messages */
-        #msgs { flex: 1; overflow-y: auto; padding: 10px 0; }
-        .msg-row { display: flex; padding: 4px 16px; gap: 16px; margin: 4px 0; }
-        .msg-row:hover { background: rgba(0,0,0,0.05); }
-        .msg-content { min-width: 0; }
-        .msg-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
-        .msg-user { font-weight: 600; color: white; font-size: 15px; }
-        .msg-time { font-size: 12px; color: var(--muted); }
-        .msg-text { color: #dcddde; line-height: 1.3; }
-
-        .msg-in { padding: 0 16px 24px 16px; }
-        .msg-in input { width: 100%; padding: 12px; background: #383a40; border: none; color: white; border-radius: 8px; outline: none; }
-
-        /* Context Menus */
-        .ctx { position: fixed; display: none; background: #111214; width: 180px; border-radius: 4px; padding: 6px; z-index: 9000; box-shadow: 0 8px 16px rgba(0,0,0,0.5); }
-        .ctx-item { padding: 10px; cursor: pointer; border-radius: 2px; font-size: 14px; }
-        .ctx-item:hover { background: var(--brand); color: white; }
-        .ctx-item.red:hover { background: var(--danger); }
-
-        #auth-screen { position: fixed; inset: 0; background: #313338; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-    </style>
-</head>
-<body>
-
-<div id="auth-screen">
-    <div style="background:#313338; padding:32px; border-radius:8px; width:350px; text-align:center;">
-        <h2 style="color:white">Discord Clone</h2>
-        <input type="email" id="email" placeholder="Email" style="width:100%; padding:10px; margin:5px 0; background:#1e1f22; border:none; color:white;">
-        <input type="password" id="pass" placeholder="Password" style="width:100%; padding:10px; margin:5px 0; background:#1e1f22; border:none; color:white;">
-        <button onclick="handleAuth()" style="width:100%; padding:10px; background:var(--brand); border:none; color:white; cursor:pointer;">Log In</button>
-    </div>
-</div>
-
-<div id="server-ctx" class="ctx">
-    <div class="ctx-item" onclick="copyId()">Copy ID</div>
-    <div class="ctx-item red" id="server-action-btn" onclick="confirmServerAction()">Delete Server</div>
-</div>
-
-<div class="rail">
-    <div class="icon" onclick="showDMs()" style="color:white">DM</div>
-    <div id="server-list"></div>
-    <div class="icon" onclick="addServerPopup()">+</div>
-</div>
-
-<div class="side">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #1e1f22;" id="side-title">DMs</div>
-    <div id="side-content" style="flex:1; overflow-y: auto; padding-bottom: 60px;"></div>
-    
-    <div class="user-footer">
-        <div class="footer-info" onclick="editProfile()">
-            <div class="avatar" id="u-avatar"><div class="status-dot"></div></div>
-            <div class="footer-text">
-                <div class="footer-name" id="u-display">Loading...</div>
-                <div class="footer-subtext">Online</div>
-            </div>
-        </div>
-        <div class="settings-btn" style="cursor:pointer" onclick="editProfile()">⚙️</div>
-    </div>
-</div>
-
-<div class="chat">
-    <div id="msgs"></div>
-    <div class="msg-in"><input type="text" id="mIn" placeholder="Message..." onkeypress="if(event.key==='Enter') send()"></div>
-</div>
-
-<div class="members-sidebar">
-    <div style="font-size:12px; font-weight:bold; color:var(--muted); margin-bottom:10px;">MEMBERS</div>
-    <div id="member-content"></div>
-</div>
-
-<script>
-    const API = "https://chat-8jat.onrender.com";
-    const _sb = supabase.createClient("https://rqyejvulyycmlcqzwoqc.supabase.co/", "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-");
-    
-    let user, profile, activeChan, activeServer, rightClickedId, isOwnerOfClicked, serverOwnerId;
-
-    _sb.auth.onAuthStateChange(async (ev, sess) => {
-        if (sess) {
-            user = sess.user;
-            document.getElementById('auth-screen').style.display = 'none';
-            const r = await fetch(`${API}/profile/${user.id}`);
-            profile = await r.json();
-            updateUIProfile();
-            showDMs(); loadServers();
-        }
-    });
-
-    function updateUIProfile() {
-        document.getElementById('u-display').innerText = profile.username;
-        if (profile.avatar_url) {
-            document.getElementById('u-avatar').style.backgroundImage = `url('${profile.avatar_url}')`;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultimate Chat - Full Build</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.cdnfonts.com/css/gg-sans');
+    :root {
+      --rail: #1e1f22; --side: #2b2d31; --chat: #313338; --brand: #5865f2;
+      --text: #dbdee1; --muted: #949ba4; --footer: #232428; --item-active: #3f4147; 
+      --success: #23a55a; --danger: #f23f43; --warning: #f0b232; --menu: #111214;
     }
+    body {
+      margin: 0; font-family: 'gg sans', sans-serif; display: grid;
+      grid-template-columns: 72px 240px 1fr 240px; height: 100vh;
+      background: var(--chat); color: var(--text); overflow: hidden;
+    }
+
+    /* RAIL */
+    .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid #111; z-index: 100; }
+    .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: 0.2s; color: var(--text); background-size: cover; background-position: center; position: relative; }
+    .icon:hover, .icon.active { border-radius: 16px; background: var(--brand); color: white; }
+    
+    /* SIDEBAR */
+    .side { background: var(--side); display: flex; flex-direction: column; border-right: 1px solid #111; height: 100vh; overflow: hidden; }
+    .side-header { height: 48px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e1f22; font-weight: bold; flex-shrink: 0; cursor: pointer; position: relative; z-index: 10; }
+    .side-header:hover { background: rgba(255,255,255,0.05); }
+    .side-content { flex: 1; overflow-y: auto; }
+    
+    .category { padding: 16px 8px 4px 16px; font-size: 12px; font-weight: bold; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+    .item { padding: 8px 12px; margin: 2px 8px; cursor: pointer; border-radius: 4px; color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.1s; }
+    .item:hover, .item.active { background: var(--item-active); color: white; }
+
+    /* STATUS UI */
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--footer); position: absolute; bottom: -2px; right: -2px; z-index: 5; pointer-events: none; }
+    .online { background: var(--success); }
+    .idle { background: var(--warning); }
+    .dnd { background: var(--danger); }
+    .offline { background: #80848e; }
+
+    #status-picker { position: fixed; bottom: 60px; left: 80px; background: var(--menu); padding: 8px; border-radius: 8px; display: none; flex-direction: column; gap: 4px; z-index: 99999; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid #222; }
+    .status-opt { padding: 8px 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text); }
+    .status-opt:hover { background: var(--brand); color: white; }
+
+    /* CHAT */
+    .chat { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--chat); }
+    .chat-header { height: 48px; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid #1e1f22; font-weight: bold; flex-shrink: 0; justify-content: space-between; }
+    #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    
+    .msg { display: flex; gap: 16px; padding: 4px 8px; border-radius: 4px; position: relative; }
+    .msg:hover { background: rgba(0,0,0,0.05); }
+    .msg-img { width: 40px; height: 40px; border-radius: 50%; background: var(--brand); flex-shrink: 0; background-size: cover; position: relative; cursor: pointer; }
+    .msg-user { font-weight: bold; color: white; font-size: 14px; }
+
+    /* CHAT INPUT */
+    .msg-in { padding: 0 16px 24px 16px; flex-shrink: 0; }
+    .input-wrapper { background: #383a40; border-radius: 8px; display: flex; align-items: center; padding: 0 12px; min-height: 44px; }
+    #mIn { background: transparent; border: none; color: var(--text); flex: 1; padding: 10px; outline: none; font-size: 15px; }
+
+    /* FOOTER */
+    .footer { background: var(--footer); padding: 0 8px; display: flex; align-items: center; gap: 8px; height: 52px; flex-shrink: 0; z-index: 10; border-top: 1px solid rgba(0,0,0,0.1); }
+    .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); background-size: cover; position: relative; }
+
+    /* CONTEXT MENUS */
+    .context-menu { position: fixed; background: var(--menu); border-radius: 4px; padding: 6px; min-width: 160px; z-index: 10000; display: none; border: 1px solid #222; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    .menu-item { padding: 8px 12px; font-size: 14px; cursor: pointer; border-radius: 2px; color: var(--text); }
+    .menu-item:hover { background: var(--brand); color: white; }
+
+    /* MODALS */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 20000; display: none; align-items: center; justify-content: center; }
+    .modal { background: var(--chat); padding: 28px; border-radius: 8px; width: 400px; box-sizing: border-box; }
+    .modal h2 { margin-top: 0; color: white; }
+    .modal input { width: 100%; padding: 12px; margin: 10px 0; background: #1e1f22; border: 1px solid #111; color: white; border-radius: 4px; box-sizing: border-box; outline: none; }
+    .btn-brand { width: 100%; padding: 12px; background: var(--brand); border: none; color: white; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .btn-danger { background: var(--danger) !important; margin-top: 8px !important; }
+
+    /* MEMBERS */
+    .members { background: var(--side); display: flex; flex-direction: column; padding: 12px 8px; overflow-y: auto; height: 100vh; border-left: 1px solid #111; }
+    .member-item { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 4px; cursor: pointer; position: relative; }
+    .member-item:hover { background: var(--item-active); }
+  </style>
+</head>
+<body onclick="hideAllPopups()" oncontextmenu="return false;">
+
+  <div id="msg-menu" class="context-menu" onclick="event.stopPropagation()">
+    <div class="menu-item" onclick="startEdit()">Edit Message</div>
+    <div class="menu-item" onclick="copyMsgText()">Copy Text</div>
+    <div class="menu-item" style="color:var(--danger)" onclick="deleteCurrentMsg()">Delete Message</div>
+  </div>
+
+  <div id="server-menu" class="context-menu" onclick="event.stopPropagation()">
+    <div class="menu-item" onclick="showInviteModal()">Invite People</div>
+    <div class="menu-item" style="color:var(--danger)" onclick="deleteServer()">Delete Server</div>
+  </div>
+
+  <div id="status-picker" onclick="event.stopPropagation()">
+    <div class="status-opt" onclick="setStatus('online')"><div class="status-dot online" style="position:static; border:none;"></div> Online</div>
+    <div class="status-opt" onclick="setStatus('idle')"><div class="status-dot idle" style="position:static; border:none;"></div> Idle</div>
+    <div class="status-opt" onclick="setStatus('dnd')"><div class="status-dot dnd" style="position:static; border:none;"></div> Do Not Disturb</div>
+    <div class="status-opt" onclick="setStatus('offline')"><div class="status-dot offline" style="position:static; border:none;"></div> Invisible</div>
+  </div>
+
+  <div id="auth-screen">
+    <div class="modal-overlay" style="display:flex;">
+      <div class="modal">
+        <h2 style="text-align:center;">Chat Login</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="pass" placeholder="Password">
+        <button class="btn-brand" onclick="handleAuth()">Join Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="icon active" id="dm-rail-btn" onclick="switchView('dm')">DM</div>
+    <div id="server-rail"></div>
+    <div class="icon" style="color:var(--success)" onclick="document.getElementById('plus-modal').style.display='flex'">+</div>
+  </div>
+
+  <div class="side">
+    <div class="side-header" id="side-title" oncontextmenu="showServerMenu(event)">Direct Messages</div>
+    <div class="side-content" id="side-content"></div>
+    <div class="footer">
+      <div style="position:relative; cursor:pointer;" onclick="toggleStatusPicker(event)">
+        <div class="avatar-sm" id="my-avatar-img" style="background-color: var(--brand);"></div>
+        <div id="my-status-dot" class="status-dot online"></div>
+      </div>
+      <div style="flex:1; min-width:0; cursor:pointer;" onclick="document.getElementById('user-settings-modal').style.display='flex'">
+        <div id="my-name" style="font-weight:bold; font-size:13px; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">User</div>
+      </div>
+      <div style="cursor:pointer; color:var(--muted); font-size:18px;" onclick="document.getElementById('user-settings-modal').style.display='flex'">⚙️</div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-header">
+      <span id="chat-header-text">Friends</span>
+      <input type="text" id="chat-search" placeholder="Search..." oninput="handleSearch(this.value)" style="background:#1e1f22; border:none; color:white; padding:4px 8px; border-radius:4px; font-size:12px; outline:none; width: 150px;">
+    </div>
+    <div id="msgs"></div>
+    <div class="msg-in" id="chat-input-area">
+      <div class="input-wrapper">
+        <label for="img-upload" style="cursor:pointer; padding:0 8px; color:var(--muted); font-size:24px;">+</label>
+        <input type="file" id="img-upload" style="display:none" accept="image/*" onchange="uploadImage(this)">
+        <input type="text" id="mIn" placeholder="Message...">
+      </div>
+    </div>
+  </div>
+
+  <div class="members">
+    <div style="font-size: 12px; font-weight: bold; color: var(--muted); padding: 0 12px 8px;">MEMBERS</div>
+    <div id="member-list"></div>
+  </div>
+
+  <div id="plus-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal"><h2>Create Server</h2><input type="text" id="new-server-name" placeholder="Server Name"><button class="btn-brand" onclick="submitCreateServer()">Create</button></div>
+  </div>
+  <div id="add-friend-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal"><h2>Add Friend</h2><input type="text" id="friend-username" placeholder="Username"><button class="btn-brand" onclick="submitAddFriend()">Send Request</button></div>
+  </div>
+  <div id="user-settings-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal">
+      <h2>Settings</h2>
+      <input type="text" id="user-settings-name" placeholder="Username">
+      <input type="text" id="user-settings-avatar" placeholder="Avatar URL">
+      <button class="btn-brand" onclick="saveUserSettings()">Save Changes</button>
+      <button class="btn-brand btn-danger" onclick="handleLogout()">Logout</button>
+    </div>
+  </div>
+
+  <script>
+    const _sb = supabase.createClient("https://rqyejvulyycmlcqzwoqc.supabase.co", "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-");
+    let user = null, profile = {}, activeView = 'dm', activeId = null, currentServerId = null;
+    let selectedMsg = null, isEditing = false, searchTerm = "";
 
     async function handleAuth() {
-        const e = document.getElementById('email').value, p = document.getElementById('pass').value;
-        const { error } = await _sb.auth.signInWithPassword({ email: e, password: p });
-        if (error) await _sb.auth.signUp({ email: e, password: p });
+      const e = document.getElementById('email').value, p = document.getElementById('pass').value;
+      const { data, error } = await _sb.auth.signInWithPassword({ email: e, password: p });
+      if (error) await _sb.auth.signUp({ email: e, password: p });
+    }
+    async function handleLogout() { await _sb.auth.signOut(); location.reload(); }
+
+    _sb.auth.onAuthStateChange((ev, sess) => { if (sess) { user = sess.user; document.getElementById('auth-screen').style.display='none'; init(); } });
+
+    async function init() {
+      const { data } = await _sb.from('profiles').select('*').eq('id', user.id).single();
+      profile = data || { id: user.id, username: user.email.split('@')[0], status: 'online' };
+      document.getElementById('my-name').innerText = profile.username;
+      if(profile.avatar_url) document.getElementById('my-avatar-img').style.backgroundImage = `url('${profile.avatar_url}')`;
+      setStatus(profile.status || 'online', false);
+      loadServers();
+      switchView('dm');
+      setInterval(() => { if(!isEditing && activeView !== 'pending') loadMessages(); }, 2000);
     }
 
-    async function loadServers() {
-        const r = await fetch(`${API}/my-servers/${user.id}`);
-        const data = await r.json();
-        document.getElementById('server-list').innerHTML = data.map(s => `
-            <div class="icon" onclick="openServer(${s.id}, '${s.name}', '${s.owner_id}')" oncontextmenu="showServerCtx(event, ${s.id}, '${s.owner_id}')">${s.name[0]}</div>
-        `).join('');
+    function switchView(view, id = null, name = null) {
+      activeView = view; activeId = id;
+      document.querySelectorAll('.icon').forEach(i => i.classList.remove('active'));
+      const sc = document.getElementById('side-content');
+      const chatIn = document.getElementById('chat-input-area');
+      
+      if(view === 'dm' || view === 'notes' || view === 'pending') {
+        document.getElementById('dm-rail-btn').classList.add('active');
+        document.getElementById('side-title').innerText = "Direct Messages";
+        sc.innerHTML = `
+          <div class="category">Direct Messages <span onclick="document.getElementById('add-friend-modal').style.display='flex'" style="cursor:pointer; font-size:16px;">+</span></div>
+          <div class="item ${view==='dm'?'active':''}" onclick="switchView('dm')">Friends</div>
+          <div class="item ${view==='pending'?'active':''}" onclick="switchView('pending')">Pending</div>
+          <div class="item ${view==='notes'?'active':''}" onclick="switchView('notes')">Notes</div>
+        `;
+        document.getElementById('chat-header-text').innerText = view.charAt(0).toUpperCase() + view.slice(1);
+        document.getElementById('member-list').innerHTML = '';
+        chatIn.style.display = (view === 'pending') ? 'none' : 'block';
+        if(view === 'pending') loadPendingRequests(); else loadMessages();
+      } else {
+        currentServerId = id;
+        const iconEl = document.querySelector(`[onclick*="'chan', ${id}"]`);
+        if(iconEl) iconEl.classList.add('active');
+        loadChannels(id, name);
+        chatIn.style.display = 'block';
+      }
     }
 
-    async function openServer(id, name, oid) {
-        activeServer = id; serverOwnerId = oid;
-        document.getElementById('side-title').innerText = name;
-        const cRes = await fetch(`${API}/channels/${id}`);
-        const chans = await cRes.json();
-        document.getElementById('side-content').innerHTML = chans.map(c => `<div class="item" onclick="setChan(${c.id})"># ${c.name}</div>`).join('');
-        loadMembers(id);
-        if (chans.length > 0) setChan(chans[0].id);
+    async function submitAddFriend() {
+      const uname = document.getElementById('friend-username').value;
+      const { data: target } = await _sb.from('profiles').select('id').eq('username', uname).single();
+      if(target) {
+        // Attempt insert - Note: this assumes a table 'friend_requests' exists
+        const { error } = await _sb.from('friend_requests').insert([{ from_user_id: user.id, to_user_id: target.id, status: 'pending' }]);
+        if(error) alert("Error: " + error.message); else alert("Friend request sent!");
+      } else alert("User not found.");
+      document.getElementById('add-friend-modal').style.display='none';
     }
 
-    async function loadMembers(id) {
-        const mRes = await fetch(`${API}/server-members/${id}`);
-        const mems = await mRes.json();
-        document.getElementById('member-content').innerHTML = mems.map(m => `
-            <div class="item">
-                <div class="avatar" style="width:24px; height:24px; background-image:url('${m.avatar_url || ''}')"></div>
-                ${m.username}
-            </div>
-        `).join('');
+    async function loadPendingRequests() {
+      const { data } = await _sb.from('friend_requests').select('*, profiles!from_user_id(*)').eq('to_user_id', user.id).eq('status', 'pending');
+      const msgs = document.getElementById('msgs');
+      if(!data || data.length === 0) {
+        msgs.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted)">No pending friend requests.</div>';
+        return;
+      }
+      msgs.innerHTML = data.map(r => `
+        <div class="msg" style="background:rgba(0,0,0,0.2); padding:15px; border-radius:8px; align-items:center;">
+            <div class="msg-user" style="flex:1; font-size:16px;">${r.profiles?.username || 'Someone'} wants to be friends.</div>
+            <button onclick="respondFriend('${r.id}', 'accepted')" class="btn-brand" style="width:auto; padding:8px 20px; margin:0 5px;">Accept</button>
+            <button onclick="respondFriend('${r.id}', 'declined')" class="btn-brand btn-danger" style="width:auto; padding:8px 20px; margin:0;">Decline</button>
+        </div>
+      `).join('');
     }
 
-    function setChan(id) { activeChan = id; refresh(); }
+    async function respondFriend(rid, status) {
+      await _sb.from('friend_requests').update({ status }).eq('id', rid);
+      loadPendingRequests();
+    }
 
-    async function refresh() {
-        if (!activeChan) return;
-        const res = await fetch(`${API}/messages/${activeChan}?type=chan`);
-        const msgs = await res.json();
-        document.getElementById('msgs').innerHTML = msgs.map(m => {
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            return `
-                <div class="msg-row">
-                    <div class="avatar" style="background-image:url('${m.avatar_url || ''}')"></div>
-                    <div class="msg-content">
-                        <div class="msg-header"><span class="msg-user">${m.username}</span><span class="msg-time">${time}</span></div>
-                        <div class="msg-text">${m.content}</div>
-                    </div>
-                </div>`;
-        }).join('');
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    async function loadChannels(sid, sname) {
+      const { data } = await _sb.from('channels').select('*').eq('server_id', sid);
+      document.getElementById('side-title').innerText = sname;
+      const sc = document.getElementById('side-content');
+      sc.innerHTML = `<div class="category">Text Channels</div>` + (data || []).map(c => `
+        <div class="item ${activeId === c.id ? 'active' : ''}" onclick="selectChan(${c.id}, '${c.name}')"># ${c.name}</div>
+      `).join('');
+      if(data?.length > 0 && activeView !== 'chan') selectChan(data[0].id, data[0].name);
+    }
+
+    function selectChan(cid, cname) { 
+      activeId = cid; activeView = 'chan'; 
+      document.getElementById('chat-header-text').innerText = "# " + cname; 
+      document.querySelectorAll('.item').forEach(i => i.classList.toggle('active', i.innerText.includes(cname)));
+      loadMessages(); loadMembers(currentServerId); 
+    }
+
+    async function loadMessages() {
+      let q = _sb.from('messages').select('*').order('created_at', { ascending: true });
+      if (activeView === 'dm') q = q.is('channel_id', null).is('note_user_id', null);
+      else if (activeView === 'notes') q = q.eq('note_user_id', user.id);
+      else if (activeView === 'chan') q = q.eq('channel_id', activeId);
+      else return;
+      
+      const { data } = await q;
+      const filtered = (data || []).filter(m => m.content.toLowerCase().includes(searchTerm));
+      document.getElementById('msgs').innerHTML = filtered.map(m => `
+        <div class="msg" oncontextmenu="showMsgMenu(event, '${m.id}', '${m.user_id}', \`${m.content.replace(/`/g, '\\`')}\`, '${m.username}')">
+          <div class="msg-img" style="background-image:url('${m.avatar_url || ''}'); background-color: var(--brand);"></div>
+          <div class="msg-content">
+            <div class="msg-user">${m.username}</div>
+            <div id="text-${m.id}" style="color:var(--text); white-space: pre-wrap;">${m.content.includes('chat-images') ? `<img src="${m.content}" style="max-width:300px; border-radius:8px; display:block;">` : m.content}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    function showMsgMenu(e, id, uid, text, user) {
+      e.preventDefault(); selectedMsg = { id, text, user };
+      const m = document.getElementById('msg-menu');
+      m.querySelector('[onclick="startEdit()"]').style.display = (uid === profile.id) ? 'block' : 'none';
+      m.style.display = 'block'; m.style.top = e.clientY + 'px'; m.style.left = e.clientX + 'px';
+    }
+
+    function showServerMenu(e) { if(activeView !== 'chan') return; e.preventDefault(); const m = document.getElementById('server-menu'); m.style.display='block'; m.style.top=e.clientY+'px'; m.style.left=e.clientX+'px'; }
+
+    async function setStatus(s, up = true) {
+      document.getElementById('my-status-dot').className = 'status-dot ' + s;
+      if(up) { profile.status = s; await _sb.from('profiles').update({ status: s }).eq('id', user.id); }
+      document.getElementById('status-picker').style.display = 'none';
     }
 
     async function send() {
-        const i = document.getElementById('mIn');
-        if (!i.value || !activeChan) return;
-        await fetch(`${API}/messages`, { 
-            method: 'POST', 
-            headers: {'Content-Type':'application/json'}, 
-            body: JSON.stringify({
-                username: profile.username, 
-                content: i.value, 
-                channel_id: activeChan, 
-                avatar_url: profile.avatar_url 
-            }) 
-        });
-        i.value = ''; refresh();
+      const inp = document.getElementById('mIn'); if(!inp.value.trim()) return;
+      const p = { user_id: user.id, username: profile.username, content: inp.value, avatar_url: profile.avatar_url };
+      if(activeView === 'notes') p.note_user_id = user.id; else if(activeView === 'chan') p.channel_id = activeId;
+      await _sb.from('messages').insert([p]);
+      inp.value = ''; loadMessages();
     }
 
-    function editProfile() {
-        const n = prompt("New Username:", profile.username);
-        const a = prompt("Avatar Image URL:", profile.avatar_url || "");
-        if (n !== null) {
-            fetch(`${API}/update-profile`, {
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({userId:user.id, username:n, avatar_url:a})
-            }).then(() => location.reload());
-        }
+    async function loadServers() {
+      const { data } = await _sb.from('server_members').select('servers(*)').eq('user_id', user.id);
+      document.getElementById('server-rail').innerHTML = (data || []).filter(r => r.servers).map(r => `
+        <div class="icon" onclick="switchView('chan', ${r.servers.id}, '${r.servers.name}')">${r.servers.name[0]}</div>
+      `).join('');
     }
 
-    function showServerCtx(e, id, oid) {
-        e.preventDefault(); rightClickedId = id; isOwnerOfClicked = (oid === user.id);
-        const btn = document.getElementById('server-action-btn');
-        btn.innerText = isOwnerOfClicked ? "Delete Server" : "Leave Server";
-        const m = document.getElementById('server-ctx');
-        m.style.display = 'block'; m.style.left = e.pageX + 'px'; m.style.top = e.pageY + 'px';
+    async function loadMembers(sid) {
+      const { data } = await _sb.from('server_members').select('profiles(*)').eq('server_id', sid);
+      document.getElementById('member-list').innerHTML = (data || []).map(m => `
+        <div class="member-item">
+          <div class="avatar-sm" style="background-image:url('${m.profiles.avatar_url || ''}'); background-color: var(--brand);">
+            <div class="status-dot ${m.profiles.status || 'offline'}" style="width:8px; height:8px; border-width:2px;"></div>
+          </div>
+          <span style="font-size:14px; color:white">${m.profiles.username}</span>
+        </div>`).join('');
     }
 
-    async function confirmServerAction() {
-        if (confirm("Are you sure?")) {
-            await fetch(`${API}${isOwnerOfClicked ? '/servers/'+rightClickedId : '/leave-server'}`, {
-                method: isOwnerOfClicked ? 'DELETE' : 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ userId: user.id, server_id: rightClickedId, user_id: user.id })
-            });
-            loadServers(); showDMs();
-        }
+    function toggleStatusPicker(e) { e.stopPropagation(); const p = document.getElementById('status-picker'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; }
+    function hideAllPopups() { ['msg-menu', 'status-picker', 'server-menu'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; }); }
+    function closeModals(e) { if(e.target.classList.contains('modal-overlay')) e.target.style.display='none'; }
+    document.getElementById('mIn').onkeydown = (e) => { if(e.key === 'Enter') send(); };
+    function handleSearch(val) { searchTerm = val.toLowerCase(); loadMessages(); }
+
+    async function saveUserSettings() {
+      const u = document.getElementById('user-settings-name').value;
+      const a = document.getElementById('user-settings-avatar').value;
+      await _sb.from('profiles').upsert({ id: user.id, username: u, avatar_url: a, status: profile.status });
+      location.reload();
     }
-
-    function addServerPopup() {
-        const n = prompt("Server Name (Leave blank to join):");
-        if (n) fetch(`${API}/servers`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:n, owner_id:user.id})}).then(()=>loadServers());
-        else {
-            const id = prompt("Server ID:");
-            if(id) fetch(`${API}/join-server`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({server_id:id, user_id:user.id})}).then(()=>loadServers());
-        }
-    }
-
-    function showDMs() { activeChan = null; activeServer = null; document.getElementById('side-title').innerText = "Direct Messages"; document.getElementById('side-content').innerHTML = ""; document.getElementById('member-content').innerHTML = ""; document.getElementById('msgs').innerHTML = ""; }
-    function copyId() { navigator.clipboard.writeText(rightClickedId); alert("ID Copied"); }
-
-    window.onclick = () => document.getElementById('server-ctx').style.display = 'none';
-    setInterval(refresh, 3000);
-</script>
+  </script>
 </body>
 </html>
