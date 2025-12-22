@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>chat</title>
+  <title>Ultimate Chat - Full Master Build</title>
 
   <!-- ✅ Use UMD build so `window.supabase` exists reliably -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
@@ -113,6 +113,50 @@
     .profile-ava { width: 56px; height: 56px; border-radius: 50%; background: var(--brand); background-size: cover; background-position: center; position: relative; border: 2px solid rgba(255,255,255,0.12); }
     .profile-name { font-size: 18px; font-weight: 800; color: white; }
     .profile-sub { font-size: 12px; color: var(--muted); }
+
+    /* ✅ PROFILE THEME UI (around banner / card) */
+    #profile-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    #profile-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--profile-theme, linear-gradient(135deg, #5865f2, #111214));
+      opacity: 0.22;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #profile-card > * {
+      position: relative;
+      z-index: 1;
+    }
+    #profile-card.themed {
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.55);
+    }
+    #profile-banner {
+      position: relative;
+    }
+    #profile-banner::before {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      background: var(--profile-theme, linear-gradient(135deg, #5865f2, #111214));
+      opacity: 0.35;
+      filter: blur(10px);
+      z-index: -1;
+      border-radius: 16px;
+    }
+
+    /* Settings labels */
+    .setting-label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
@@ -220,6 +264,21 @@
       <input type="text" id="user-settings-name" placeholder="Username">
       <input type="text" id="user-settings-avatar" placeholder="Avatar URL">
       <input type="text" id="user-settings-banner" placeholder="Banner URL">
+
+      <!-- ✅ Theme controls -->
+      <label class="setting-label">Theme Color</label>
+      <input type="color" id="user-settings-theme-color-picker" value="#5865f2" style="height:44px; padding:6px; border-radius:6px;">
+
+      <label class="setting-label">Theme Gradient (optional)</label>
+      <input type="text" id="user-settings-theme-gradient" placeholder="linear-gradient(135deg, #5865f2, #eb459e)">
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #5865f2, #eb459e)')">Purple/Pink</button>
+        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #00c6ff, #0072ff)')">Blue</button>
+        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #22c55e, #16a34a, #0ea5e9)')">Green/Blue</button>
+        <button class="mini-btn" type="button" onclick="setGradientPreset('')">No Gradient</button>
+      </div>
+
       <button class="btn-brand" onclick="saveUserSettings()">Save Changes</button>
       <button class="btn-brand btn-danger" onclick="handleLogout()">Logout</button>
     </div>
@@ -227,7 +286,7 @@
 
   <!-- PROFILE VIEW MODAL -->
   <div id="profile-modal" class="modal-overlay" onclick="closeModals(event)">
-    <div class="modal" style="width:460px;">
+    <div id="profile-card" class="modal" style="width:460px;">
       <div id="profile-banner" class="profile-banner"></div>
       <div class="profile-top">
         <div id="profile-avatar" class="profile-ava"></div>
@@ -320,6 +379,12 @@
     function stopPolling() {
       if (__pollTimer) clearInterval(__pollTimer);
       __pollTimer = null;
+    }
+
+    // ✅ Gradient preset helper
+    function setGradientPreset(v) {
+      const g = document.getElementById('user-settings-theme-gradient');
+      if (g) g.value = v || '';
     }
 
     // Safe DOM rendering of messages (prevents inline onclick quoting bugs)
@@ -438,7 +503,11 @@
     async function init() {
       await waitForSb();
 
-      // Load or create profile (includes banner_url)
+      // NOTE: For theme to persist, your `profiles` table needs:
+      // theme_color text, theme_gradient text
+      // (plus your existing: banner_url, avatar_url, status, username, id)
+
+      // Load or create profile (includes banner_url + theme fields)
       const { data, error } = await window._sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
       if (error) console.error(error);
 
@@ -448,7 +517,9 @@
           username: (user.email || "user").split('@')[0],
           status: 'online',
           avatar_url: null,
-          banner_url: null
+          banner_url: null,
+          theme_color: "#5865f2",
+          theme_gradient: null
         };
         const { error: upErr } = await window._sb.from('profiles').upsert(defaultProfile);
         if (upErr) console.error(upErr);
@@ -457,12 +528,19 @@
         profile = data;
         if (!profile.username) profile.username = (user.email || "user").split('@')[0];
         if (!profile.status) profile.status = 'online';
+        if (!profile.theme_color) profile.theme_color = "#5865f2";
       }
 
       document.getElementById('my-name').innerText = profile.username || 'User';
       document.getElementById('user-settings-name').value = profile.username || '';
       document.getElementById('user-settings-avatar').value = profile.avatar_url || '';
       document.getElementById('user-settings-banner').value = profile.banner_url || '';
+
+      // Theme inputs
+      const picker = document.getElementById('user-settings-theme-color-picker');
+      if (picker) picker.value = (profile.theme_color || '#5865f2');
+      const gIn = document.getElementById('user-settings-theme-gradient');
+      if (gIn) gIn.value = (profile.theme_gradient || '');
 
       if (profile.avatar_url) document.getElementById('my-avatar-img').style.backgroundImage = `url('${profile.avatar_url}')`;
       setStatus(profile.status || 'online', false);
@@ -517,7 +595,7 @@
         return;
       }
 
-      // ✅ SERVER MODE (separate from channel view so it doesn’t “flip to DM”)
+      // ✅ SERVER MODE
       if (view === 'server') {
         currentServerId = id;
         currentServerName = name || "Server";
@@ -1371,13 +1449,14 @@
 
       const { data: p, error } = await window._sb
         .from('profiles')
-        .select('id, username, avatar_url, banner_url, status')
+        .select('id, username, avatar_url, banner_url, status, theme_color, theme_gradient')
         .eq('id', uid)
         .maybeSingle();
 
       if (error) { console.error(error); return alert("Error loading profile."); }
       if (!p) return;
 
+      // ✅ Banner stays banner (or default dark). NOT themed.
       const banner = document.getElementById('profile-banner');
       banner.style.backgroundImage = p.banner_url ? `url('${p.banner_url}')` : 'none';
       if (!p.banner_url) banner.style.background = '#1e1f22';
@@ -1390,6 +1469,18 @@
 
       const sdot = document.getElementById('profile-status-dot');
       sdot.className = 'status-dot ' + (p.status || 'offline');
+
+      // ✅ Apply theme ONLY to profile UI around banner/card
+      const card = document.getElementById('profile-card');
+      let theme = "";
+      if (p.theme_gradient && String(p.theme_gradient).trim()) theme = String(p.theme_gradient).trim();
+      else if (p.theme_color && String(p.theme_color).trim()) theme = String(p.theme_color).trim();
+      else theme = "linear-gradient(135deg, #5865f2, #111214)";
+
+      if (card) {
+        card.style.setProperty("--profile-theme", theme);
+        card.classList.add("themed");
+      }
 
       const actions = document.getElementById('profile-actions');
       actions.innerHTML = '';
@@ -1459,6 +1550,11 @@
       const a = document.getElementById('user-settings-avatar').value.trim();
       const b = document.getElementById('user-settings-banner').value.trim();
 
+      const picker = document.getElementById('user-settings-theme-color-picker');
+      const tc = picker ? String(picker.value || "").trim() : "";
+
+      const tg = document.getElementById('user-settings-theme-gradient').value.trim();
+
       if (!u) return alert("Username cannot be empty.");
 
       const payload = {
@@ -1466,7 +1562,9 @@
         username: u,
         avatar_url: a || null,
         banner_url: b || null,
-        status: profile.status || 'online'
+        status: profile.status || 'online',
+        theme_color: tc || null,
+        theme_gradient: tg || null
       };
 
       const { error } = await window._sb.from('profiles').upsert(payload);
