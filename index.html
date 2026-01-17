@@ -2,180 +2,695 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ultimate Chat - Full Master Build</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>chat</title>
 
-  <!-- ✅ Use UMD build so `window.supabase` exists reliably -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
-  <script>
-    // Fallback if jsdelivr is blocked
-    (function () {
-      if (typeof supabase !== "undefined") return;
-      var s = document.createElement("script");
-      s.src = "https://unpkg.com/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js";
-      document.head.appendChild(s);
-    })();
-  </script>
+  <!-- Emoji Mart vanilla build (picker) -->
+  <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
+
+<script>
+(function loadSupabase() {
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+  s.crossOrigin = "anonymous";
+  s.onload = () => console.log("✅ Supabase loaded");
+  s.onerror = () => console.error("❌ Supabase failed to load");
+  document.head.appendChild(s);
+})();
+</script>
+
 
   <style>
-    @import url('https://fonts.cdnfonts.com/css/gg-sans');
+    @import url("https://fonts.cdnfonts.com/css/gg-sans");
+
     :root {
-      --rail: #1e1f22; --side: #2b2d31; --chat: #313338; --brand: #5865f2;
-      --text: #dbdee1; --muted: #949ba4; --footer: #232428; --item-active: #3f4147;
-      --success: #23a55a; --danger: #f23f43; --warning: #f0b232; --menu: #111214;
-    }
-    body {
-      margin: 0; font-family: 'gg sans', sans-serif; display: grid;
-      grid-template-columns: 72px 240px 1fr 240px; height: 100vh;
-      background: var(--chat); color: var(--text); overflow: hidden;
+      --rail: #1e1f22;
+      --side: #2b2d31;
+      --chat: #313338;
+      --brand: #5865f2;
+      --text: #dbdee1;
+      --muted: #949ba4;
+      --footer: #232428;
+      --item-active: #3f4147;
+      --success: #23a55a;
+      --danger: #f23f43;
+      --warning: #f0b232;
+      --menu: #111214;
+      --scrollTrack: rgba(0,0,0,0.0);
+      --scrollThumb: rgba(255,255,255,0.12);
+      --scrollThumbHover: rgba(255,255,255,0.20);
     }
 
-    /* RAIL - LEFT NAVIGATION */
-    .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid #111; z-index: 100; }
-    .icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: 0.2s; color: var(--text); background-size: cover; background-position: center; position: relative; }
-    .icon:hover, .icon.active { border-radius: 16px; background: var(--brand); color: white; }
-    .icon::before { content: ''; position: absolute; left: -12px; height: 0; width: 4px; background: white; border-radius: 0 4px 4px 0; transition: 0.2s; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: "gg sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      display: grid;
+      grid-template-columns: 72px 240px 1fr 240px;
+      height: 100vh;
+      background: var(--chat);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ====== DARK, SLIM DISCORD-LIKE SCROLLBARS ====== */
+    /* Firefox */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollThumb) var(--scrollTrack);
+    }
+    /* WebKit */
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: var(--scrollTrack); }
+    *::-webkit-scrollbar-thumb {
+      background: var(--scrollThumb);
+      border-radius: 999px;
+      border: 3px solid rgba(0,0,0,0);
+      background-clip: padding-box;
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--scrollThumbHover); background-clip: padding-box; }
+
+    .rail {
+      background: var(--rail);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 8px;
+      border-right: 1px solid #111;
+      z-index: 100;
+    }
+
+    .icon {
+      width: 48px;
+      height: 48px;
+      background: #313338;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      transition: 0.2s;
+      color: var(--text);
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      user-select: none;
+    }
+
+    .icon:hover,
+    .icon.active {
+      border-radius: 16px;
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .icon::before {
+      content: "";
+      position: absolute;
+      left: -12px;
+      height: 0;
+      width: 4px;
+      background: #fff;
+      border-radius: 0 4px 4px 0;
+      transition: 0.2s;
+    }
+
     .icon.active::before { height: 40px; }
     .icon:hover::before { height: 20px; }
 
-    /* SIDEBAR - CHANNEL/DM LIST */
-    .side { background: var(--side); display: flex; flex-direction: column; border-right: 1px solid #111; height: 100vh; overflow: hidden; }
-    .side-header { height: 48px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e1f22; font-weight: bold; flex-shrink: 0; cursor: pointer; position: relative; z-index: 10; }
+    .side {
+      background: var(--side);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #111;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .side-header {
+      height: 48px;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e1f22;
+      font-weight: 800;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+      z-index: 10;
+    }
+
     .side-header:hover { background: rgba(255,255,255,0.05); }
     .side-content { flex: 1; overflow-y: auto; }
 
-    .category { padding: 16px 8px 4px 16px; font-size: 12px; font-weight: bold; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
-    .item { padding: 8px 12px; margin: 2px 8px; cursor: pointer; border-radius: 4px; color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.1s; }
-    .item:hover, .item.active { background: var(--item-active); color: white; }
+    .category {
+      padding: 16px 8px 4px 16px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      letter-spacing: 0.02em;
+    }
 
-    /* STATUS UI */
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--footer); position: absolute; bottom: -2px; right: -2px; z-index: 5; pointer-events: none; }
+    .item {
+      padding: 8px 12px;
+      margin: 2px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      transition: 0.1s;
+      user-select: none;
+    }
+
+    .item:hover,
+    .item.active {
+      background: var(--item-active);
+      color: #fff;
+    }
+
+    /* pending badge */
+    .badge {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      font-weight: 900;
+      display: none;
+      line-height: 16px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 3px solid var(--footer);
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      z-index: 5;
+      pointer-events: none;
+    }
+
     .online { background: var(--success); }
     .idle { background: var(--warning); }
     .dnd { background: var(--danger); }
     .offline { background: #80848e; }
 
-    /* CHAT AREA */
-    .chat { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--chat); }
-    .chat-header { height: 48px; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid #1e1f22; font-weight: bold; flex-shrink: 0; justify-content: space-between; }
-    #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-
-    .msg { display: flex; gap: 16px; padding: 4px 8px; border-radius: 4px; position: relative; }
-    .msg:hover { background: rgba(0,0,0,0.05); }
-    .msg-img { width: 40px; height: 40px; border-radius: 50%; background: var(--brand); flex-shrink: 0; background-size: cover; background-position: center; position: relative; cursor: pointer; }
-    .msg-user { font-weight: bold; color: white; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-    .msg-time { font-size: 11px; color: var(--muted); font-weight: normal; }
-    .reply-ref { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
-
-    /* INPUT AREA */
-    .msg-in { padding: 0 16px 24px 16px; flex-shrink: 0; }
-    .input-wrapper { background: #383a40; border-radius: 8px; display: flex; align-items: center; padding: 0 12px; min-height: 44px; }
-    #mIn { background: transparent; border: none; color: var(--text); flex: 1; padding: 10px; outline: none; font-size: 15px; }
-
-    /* FOOTER */
-    .footer { background: var(--footer); padding: 0 8px; display: flex; align-items: center; gap: 8px; height: 52px; flex-shrink: 0; z-index: 10; border-top: 1px solid rgba(0,0,0,0.1); }
-    .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); background-size: cover; background-position: center; position: relative; }
-
-    /* MENUS & MODALS */
-    .context-menu { position: fixed; background: var(--menu); border-radius: 4px; padding: 6px; min-width: 160px; z-index: 10000; display: none; border: 1px solid #222; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-    .menu-item { padding: 8px 12px; font-size: 14px; cursor: pointer; border-radius: 2px; color: var(--text); }
-    .menu-item:hover { background: var(--brand); color: white; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 20000; display: none; align-items: center; justify-content: center; }
-    .modal { background: var(--chat); padding: 28px; border-radius: 8px; width: 420px; box-sizing: border-box; }
-    .modal input { width: 100%; padding: 12px; margin: 10px 0; background: #1e1f22; border: 1px solid #111; color: white; border-radius: 4px; box-sizing: border-box; outline: none; }
-    .btn-brand { width: 100%; padding: 12px; background: var(--brand); border: none; color: white; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .btn-danger { background: var(--danger) !important; margin-top: 8px !important; }
-
-    /* MEMBERS LIST */
-    .members { background: var(--side); display: flex; flex-direction: column; padding: 12px 8px; overflow-y: auto; height: 100vh; border-left: 1px solid #111; }
-    .member-item { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 4px; cursor: pointer; position: relative; }
-    .member-item:hover { background: var(--item-active); }
-    .member-ava { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); background-size: cover; background-position: center; position: relative; flex-shrink: 0; }
-    .member-name { font-size: 13px; color: white; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-
-    /* FRIENDS (main panel list - Discord-like) */
-    .friends-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-    .pill { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.06); color: var(--text); padding: 6px 10px; border-radius: 999px; cursor: pointer; font-size: 12px; }
-    .pill.active { background: rgba(88,101,242,0.25); border-color: rgba(88,101,242,0.35); }
-    .friend-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,0.06); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
-    .friend-row:hover { background: rgba(0,0,0,0.10); }
-    .friend-ava { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); background-size: cover; background-position: center; position: relative; flex-shrink: 0; }
-    .friend-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .friend-name { font-weight: 700; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .friend-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .friend-actions { display: flex; gap: 8px; }
-    .mini-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); color: var(--text); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    .mini-btn:hover { background: rgba(255,255,255,0.10); }
-
-    /* PROFILE VIEW */
-    .profile-banner { height: 110px; border-radius: 10px; background: #1e1f22; background-size: cover; background-position: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); }
-    .profile-top { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
-    .profile-ava { width: 56px; height: 56px; border-radius: 50%; background: var(--brand); background-size: cover; background-position: center; position: relative; border: 2px solid rgba(255,255,255,0.12); }
-    .profile-name { font-size: 18px; font-weight: 800; color: white; }
-    .profile-sub { font-size: 12px; color: var(--muted); }
-
-    /* ✅ PROFILE THEME UI (around banner / card) */
-    #profile-card {
-      position: relative;
+    .chat {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.10);
-    }
-    #profile-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: var(--profile-theme, linear-gradient(135deg, #5865f2, #111214));
-      opacity: 0.22;
-      pointer-events: none;
-      z-index: 0;
-    }
-    #profile-card > * {
-      position: relative;
-      z-index: 1;
-    }
-    #profile-card.themed {
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.55);
-    }
-    #profile-banner {
-      position: relative;
-    }
-    #profile-banner::before {
-      content: "";
-      position: absolute;
-      inset: -10px;
-      background: var(--profile-theme, linear-gradient(135deg, #5865f2, #111214));
-      opacity: 0.35;
-      filter: blur(10px);
-      z-index: -1;
-      border-radius: 16px;
+      background: var(--chat);
     }
 
-    /* Settings labels */
-    .setting-label {
+    .chat-header {
+      height: 48px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #1e1f22;
+      font-weight: 800;
+      flex-shrink: 0;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    #msgs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      /* allow selection */
+      user-select: text;
+    }
+
+    .msg {
+      display: flex;
+      gap: 16px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      position: relative;
+      /* allow selection */
+      user-select: text;
+    }
+
+    .msg:hover { background: rgba(0,0,0,0.05); }
+
+    .msg-img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #1e1f22;
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .msg-user {
+      font-weight: 800;
+      color: #fff;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: text;
+    }
+
+    .msg-time {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .reply-ref {
       font-size: 12px;
       color: var(--muted);
-      display: block;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      user-select: text;
+    }
+
+    .msg-in {
+      padding: 0 16px 24px 16px;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      background: #383a40;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      min-height: 44px;
+    }
+
+    #mIn {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      flex: 1;
+      padding: 10px;
+      outline: none;
+      font-size: 15px;
+      user-select: text;
+    }
+
+    .footer {
+      background: var(--footer);
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 52px;
+      flex-shrink: 0;
+      z-index: 10;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .avatar-sm {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #1e1f22;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      user-select: none;
+    }
+
+    .context-menu {
+      position: fixed;
+      background: var(--menu);
+      border-radius: 4px;
+      padding: 6px;
+      min-width: 170px;
+      z-index: 10000;
+      display: none;
+      border: 1px solid #222;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .menu-item {
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 2px;
+      color: var(--text);
+      user-select: none;
+    }
+
+    .menu-item:hover { background: var(--brand); color: #fff; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 20000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal {
+      background: var(--chat);
+      padding: 28px;
+      border-radius: 8px;
+      width: 420px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      background: #1e1f22;
+      border: 1px solid #111;
+      color: #fff;
+      border-radius: 4px;
+      outline: none;
+      user-select: text;
+    }
+
+    .btn-brand {
+      width: 100%;
+      padding: 12px;
+      background: var(--brand);
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      font-weight: 800;
+      cursor: pointer;
       margin-top: 10px;
     }
+
+    .btn-danger { background: var(--danger) !important; margin-top: 8px !important; }
+
+    .members {
+      background: var(--side);
+      display: flex;
+      flex-direction: column;
+      padding: 12px 8px;
+      overflow-y: auto;
+      height: 100vh;
+      border-left: 1px solid #111;
+    }
+    .members.hidden { display: none !important; }
+
+    .member-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+    }
+
+    .member-item:hover { background: var(--item-active); }
+
+    .member-ava {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #1e1f22;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .member-name {
+      font-size: 13px;
+      color: #fff;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 150px;
+    }
+
+    .friends-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .pill.active {
+      background: rgba(88,101,242,0.25);
+      border-color: rgba(88,101,242,0.35);
+    }
+
+    .friend-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.06);
+      border: 1px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+    }
+
+    .friend-row:hover { background: rgba(0,0,0,0.10); }
+
+    .friend-ava {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1e1f22;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .friend-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .friend-name {
+      font-weight: 800;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .friend-sub {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .friend-actions { display: flex; gap: 8px; }
+
+    .mini-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .mini-btn:hover { background: rgba(255,255,255,0.10); }
+
+    .profile-banner {
+      height: 110px;
+      border-radius: 10px;
+      background: #1e1f22;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat; /* fixes tiling/looping */
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .profile-top {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .profile-ava {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #1e1f22;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      border: 2px solid rgba(255,255,255,0.12);
+      user-select: none;
+    }
+
+    .profile-name { font-size: 18px; font-weight: 900; color: #fff; }
+    .profile-sub { font-size: 12px; color: var(--muted); }
+
+    #typing-line {
+      display: none;
+      padding: 6px 4px;
+      color: var(--muted);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .reactions-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+    .reaction-pill {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:4px 8px; border-radius:999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      cursor:pointer; font-size:12px; color: var(--text);
+      user-select: none;
+    }
+    .reaction-pill.me { border-color: rgba(88,101,242,0.6); background: rgba(88,101,242,0.18); }
+
+    /* hide the always-visible "+" add; we now show actions on hover */
+    .reaction-add { display:none !important; }
+
+    .tag-edited { font-size: 11px; color: var(--muted); font-weight: 600; user-select: none; }
+
+    /* message hover actions (3 dots + reaction) */
+    .msg-actions {
+      position: absolute;
+      right: 8px;
+      top: 6px;
+      display: none;
+      gap: 6px;
+      align-items: center;
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 4px 6px;
+      backdrop-filter: blur(6px);
+      user-select: none;
+    }
+    .msg:hover .msg-actions { display: flex; }
+
+    .act-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+    }
+    .act-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* DM conversation list */
+    .dm-row {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 8px 10px;
+      margin: 2px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.1s;
+      user-select: none;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.04);
+    }
+    .dm-row:hover { background: rgba(0,0,0,0.10); }
+    .dm-row.active { background: rgba(88,101,242,0.18); border-color: rgba(88,101,242,0.25); }
+
+    .dm-ava {
+      width: 34px; height: 34px; border-radius: 50%;
+      background:#1e1f22;
+      background-size: cover; background-position:center; background-repeat:no-repeat;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .dm-meta { flex: 1; min-width: 0; display:flex; flex-direction:column; gap:2px; }
+    .dm-name { font-weight: 900; color: #fff; font-size: 13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dm-sub { color: var(--muted); font-size: 12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dm-time { color: var(--muted); font-size: 11px; font-weight: 700; }
+
+    /* Emoji picker modal sizing */
+    #emoji-modal .modal { width: 520px; max-width: 92vw; }
+    #emoji-picker-wrap { border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
   </style>
 </head>
 
-<body onclick="hideAllPopups()" oncontextmenu="return false;">
-
+<body onclick="hideAllPopups()">
   <div id="msg-menu" class="context-menu" onclick="event.stopPropagation()">
     <div class="menu-item" onclick="startReply()">Reply</div>
     <div class="menu-item" onclick="startEdit()">Edit Message</div>
+    <div class="menu-item" onclick="viewEditHistory()">View Edit History</div>
     <div class="menu-item" onclick="copyMsgText()">Copy Text</div>
     <div class="menu-item" style="color:var(--danger)" onclick="deleteCurrentMsg()">Delete Message</div>
   </div>
 
   <div id="server-rail-menu" class="context-menu" onclick="event.stopPropagation()">
-    <div class="menu-item" onclick="showInviteModal()">Invite People</div>
+    <div class="menu-item" onclick="showInviteModal()">Invite</div>
     <div id="server-settings-item" class="menu-item" onclick="openServerSettings()">Server Settings</div>
     <div id="server-delete-item" class="menu-item" style="color:var(--danger)" onclick="deleteServer()">Delete Server</div>
   </div>
 
-  <div id="status-picker" class="context-menu" style="width: 200px;" onclick="event.stopPropagation()">
+  <div id="status-picker" class="context-menu" style="width:200px" onclick="event.stopPropagation()">
     <div class="status-opt menu-item" onclick="setStatus('online')">Online</div>
     <div class="status-opt menu-item" onclick="setStatus('idle')">Idle</div>
     <div class="status-opt menu-item" onclick="setStatus('dnd')">Do Not Disturb</div>
@@ -183,11 +698,11 @@
   </div>
 
   <div id="auth-screen">
-    <div class="modal-overlay" style="display:flex;">
+    <div class="modal-overlay" style="display:flex">
       <div class="modal">
-        <h2 style="text-align:center;">Chat Login</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="pass" placeholder="Password">
+        <h2 style="text-align:center;margin:0 0 12px 0">Chat Login</h2>
+        <input type="email" id="email" placeholder="Email" autocomplete="email" />
+        <input type="password" id="pass" placeholder="Password" autocomplete="current-password" />
         <button class="btn-brand" onclick="handleAuth()">Join Chat</button>
       </div>
     </div>
@@ -196,122 +711,179 @@
   <div class="rail">
     <div class="icon active" id="dm-rail-btn" onclick="switchView('dm')">DM</div>
     <div id="server-rail"></div>
-    <div class="icon" style="color:var(--success)" onclick="document.getElementById('plus-modal').style.display='flex'">+</div>
+    <div class="icon" style="color:var(--success)" onclick="openPlusMenu(event)">+</div>
   </div>
 
   <div class="side">
     <div class="side-header" id="side-title">Direct Messages</div>
     <div class="side-content" id="side-content"></div>
     <div class="footer">
-      <div style="position:relative; cursor:pointer;" onclick="toggleStatusPicker(event)">
-        <div class="avatar-sm" id="my-avatar-img" style="background-color: var(--brand);"></div>
+      <div style="position:relative;cursor:pointer" onclick="toggleStatusPicker(event)">
+        <div class="avatar-sm" id="my-avatar-img"></div>
         <div id="my-status-dot" class="status-dot online"></div>
       </div>
-      <div style="flex:1; min-width:0; cursor:pointer;" onclick="document.getElementById('user-settings-modal').style.display='flex'">
-        <div id="my-name" style="font-weight:bold; font-size:13px; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">User</div>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('user-settings-modal').style.display='flex'">
+        <div id="my-name" style="font-weight:800;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User</div>
       </div>
-      <div style="cursor:pointer; color:var(--muted); font-size:18px;" onclick="document.getElementById('user-settings-modal').style.display='flex'">⚙️</div>
+      <div style="cursor:pointer;color:var(--muted);font-size:18px" onclick="document.getElementById('user-settings-modal').style.display='flex'">⚙️</div>
     </div>
   </div>
 
   <div class="chat">
     <div class="chat-header">
       <span id="chat-header-text">Friends</span>
-      <input type="text" id="chat-search" placeholder="Search..." oninput="handleSearch(this.value)" style="background:#1e1f22; border:none; color:white; padding:4px 8px; border-radius:4px; font-size:12px; outline:none; width: 150px;">
+      <input
+        type="text"
+        id="chat-search"
+        placeholder="Search..."
+        oninput="handleSearch(this.value)"
+        style="background:#1e1f22;border:none;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;outline:none;width:150px"
+      />
     </div>
+
     <div id="msgs"></div>
+
     <div class="msg-in" id="chat-input-area">
-      <div id="reply-preview" style="display:none; background:#2b2d31; padding:8px; border-radius:8px 8px 0 0; font-size:12px; border-left: 2px solid var(--brand);">
-        Replying to <span id="reply-user" style="font-weight:bold;"></span>: <span id="reply-text" style="color:var(--muted);"></span>
-        <span onclick="cancelReply()" style="float:right; cursor:pointer;">×</span>
+      <div
+        id="reply-preview"
+        style="display:none;background:#2b2d31;padding:8px;border-radius:8px 8px 0 0;font-size:12px;border-left:2px solid var(--brand)"
+      >
+        Replying to <span id="reply-user" style="font-weight:800"></span>:
+        <span id="reply-text" style="color:var(--muted)"></span>
+        <span onclick="cancelReply()" style="float:right;cursor:pointer">×</span>
       </div>
+
+      <div id="typing-line"></div>
+
       <div class="input-wrapper">
-        <label for="img-upload" style="cursor:pointer; padding:0 8px; color:var(--muted); font-size:24px;">+</label>
-        <input type="file" id="img-upload" style="display:none" accept="image/*" onchange="uploadImage(this)">
-        <input type="text" id="mIn" placeholder="Message...">
+        <label for="img-upload" style="cursor:pointer;padding:0 8px;color:var(--muted);font-size:24px">+</label>
+        <input type="file" id="img-upload" style="display:none" accept="image/*" onchange="uploadImage(this)" />
+        <input
+          type="text"
+          id="mIn"
+          placeholder="Message..."
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          name="field_9f3a1"
+        />
       </div>
     </div>
   </div>
 
-  <div class="members">
-    <div style="font-size: 12px; font-weight: bold; color: var(--muted); padding: 0 12px 8px;">MEMBERS</div>
+  <div class="members" id="members-panel">
+    <div style="font-size:12px;font-weight:800;color:var(--muted);padding:0 12px 8px;letter-spacing:0.02em">MEMBERS</div>
     <div id="member-list"></div>
   </div>
 
+  <div id="plus-choice-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Server</h2>
+      <button class="btn-brand" onclick="openCreateServer()">Create a Server</button>
+      <button class="btn-brand" style="background:rgba(255,255,255,0.08)" onclick="openJoinServer()">Join a Server</button>
+    </div>
+  </div>
+
+  <div id="join-server-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Join Server</h2>
+      <input type="text" id="join-server-id" placeholder="Paste Server ID" />
+      <button class="btn-brand" onclick="submitJoinServer()">Join</button>
+    </div>
+  </div>
+
   <div id="plus-modal" class="modal-overlay" onclick="closeModals(event)">
-    <div class="modal"><h2>Create Server</h2><input type="text" id="new-server-name" placeholder="Server Name"><button class="btn-brand" onclick="submitCreateServer()">Create</button></div>
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Create Server</h2>
+      <input type="text" id="new-server-name" placeholder="Server Name" />
+      <button class="btn-brand" onclick="submitCreateServer()">Create</button>
+    </div>
   </div>
 
   <div id="add-friend-modal" class="modal-overlay" onclick="closeModals(event)">
-    <div class="modal"><h2>Add Friend</h2><input type="text" id="friend-username" placeholder="Username"><button class="btn-brand" onclick="submitAddFriend()">Send Request</button></div>
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Add Friend</h2>
+      <input type="text" id="friend-username" placeholder="Username" />
+      <button class="btn-brand" onclick="submitAddFriend()">Send Request</button>
+    </div>
   </div>
 
   <div id="invite-modal" class="modal-overlay" onclick="closeModals(event)">
-    <div class="modal"><h2>Invite User</h2><input type="text" id="invite-email" placeholder="User Email"><button class="btn-brand" onclick="submitInvite()">Send Invite</button></div>
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Invite</h2>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:8px">Share this Server ID:</div>
+      <input type="text" id="invite-server-id" readonly />
+      <button class="btn-brand" onclick="copyInviteServerId()">Copy Server ID</button>
+    </div>
   </div>
 
   <div id="server-settings-modal" class="modal-overlay" onclick="closeModals(event)">
     <div class="modal">
-      <h2>Server Settings</h2>
-      <input type="text" id="edit-server-name" placeholder="New Name">
+      <h2 style="margin:0 0 10px 0">Server Settings</h2>
+      <input type="text" id="edit-server-name" placeholder="New Name" />
       <button class="btn-brand" onclick="updateServerName()">Update</button>
     </div>
   </div>
 
   <div id="user-settings-modal" class="modal-overlay" onclick="closeModals(event)">
     <div class="modal">
-      <h2>Settings</h2>
-      <input type="text" id="user-settings-name" placeholder="Username">
-      <input type="text" id="user-settings-avatar" placeholder="Avatar URL">
-      <input type="text" id="user-settings-banner" placeholder="Banner URL">
-
-      <!-- ✅ Theme controls -->
-      <label class="setting-label">Theme Color</label>
-      <input type="color" id="user-settings-theme-color-picker" value="#5865f2" style="height:44px; padding:6px; border-radius:6px;">
-
-      <label class="setting-label">Theme Gradient (optional)</label>
-      <input type="text" id="user-settings-theme-gradient" placeholder="linear-gradient(135deg, #5865f2, #eb459e)">
-
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #5865f2, #eb459e)')">Purple/Pink</button>
-        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #00c6ff, #0072ff)')">Blue</button>
-        <button class="mini-btn" type="button" onclick="setGradientPreset('linear-gradient(135deg, #22c55e, #16a34a, #0ea5e9)')">Green/Blue</button>
-        <button class="mini-btn" type="button" onclick="setGradientPreset('')">No Gradient</button>
-      </div>
-
+      <h2 style="margin:0 0 10px 0">Settings</h2>
+      <input type="text" id="user-settings-name" placeholder="Username" />
+      <input type="text" id="user-settings-avatar" placeholder="Avatar URL" />
+      <input type="text" id="user-settings-banner" placeholder="Banner URL" />
       <button class="btn-brand" onclick="saveUserSettings()">Save Changes</button>
       <button class="btn-brand btn-danger" onclick="handleLogout()">Logout</button>
     </div>
   </div>
 
-  <!-- PROFILE VIEW MODAL -->
+  <div id="edit-history-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal" style="width:520px">
+      <h2 style="margin:0 0 10px 0">Edit History</h2>
+      <div id="edit-history-body" style="max-height:360px;overflow:auto"></div>
+      <button class="btn-brand" style="background:rgba(255,255,255,0.08);margin-top:14px" onclick="document.getElementById('edit-history-modal').style.display='none'">
+        Close
+      </button>
+    </div>
+  </div>
+
   <div id="profile-modal" class="modal-overlay" onclick="closeModals(event)">
-    <div id="profile-card" class="modal" style="width:460px;">
+    <div id="profile-card" class="modal" style="width:460px">
       <div id="profile-banner" class="profile-banner"></div>
       <div class="profile-top">
         <div id="profile-avatar" class="profile-ava"></div>
-        <div style="flex:1; min-width:0;">
+        <div style="flex:1;min-width:0">
           <div id="profile-name" class="profile-name">User</div>
           <div id="profile-status" class="profile-sub">Status: offline</div>
         </div>
-        <div id="profile-status-dot" class="status-dot offline" style="position:relative; right:auto; bottom:auto;"></div>
+        <div id="profile-status-dot" class="status-dot offline" style="position:relative;right:auto;bottom:auto"></div>
       </div>
-      <div id="profile-actions" style="display:flex; gap:8px; margin-top:12px;"></div>
-      <button class="btn-brand" style="background:rgba(255,255,255,0.08); margin-top:14px;" onclick="document.getElementById('profile-modal').style.display='none'">Close</button>
+      <div id="profile-actions" style="display:flex;gap:8px;margin-top:12px"></div>
+      <button class="btn-brand" style="background:rgba(255,255,255,0.08);margin-top:14px" onclick="document.getElementById('profile-modal').style.display='none'">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Emoji picker modal -->
+  <div id="emoji-modal" class="modal-overlay" onclick="closeModals(event)">
+    <div class="modal">
+      <h2 style="margin:0 0 10px 0">Pick an emoji</h2>
+      <div id="emoji-picker-wrap"></div>
+      <button class="btn-brand" style="background:rgba(255,255,255,0.08);margin-top:14px" onclick="document.getElementById('emoji-modal').style.display='none'">
+        Close
+      </button>
     </div>
   </div>
 
   <script>
-    // -----------------------------
-    // Supabase client: create once, global
-    // -----------------------------
+    /* ========= SUPABASE INIT ========= */
     (function ensureSb() {
       function createIfPossible() {
         if (window._sb) return true;
-        if (typeof supabase === "undefined") return false;
-        window._sb = supabase.createClient(
-          "https://rqyejvulyycmlcqzwoqc.supabase.co",
-          "sb_publishable_9WMZrveUVKRaCsJr7Q_eSQ_5vaZgGK-"
+        if (typeof window.supabase === "undefined") return false;
+        window._sb = window.supabase.createClient(
+          "https://mcaqxxaigrbvzywftxuw.supabase.co",
+          "sb_publishable_byMeKw343oxtbLiMzYIDhg_oo0VSN_h"
         );
         return true;
       }
@@ -323,21 +895,70 @@
       }, 50);
     })();
 
-    // ✅ Init guard + one poller (fixes duplicates + editing getting overwritten)
     let __didInit = false;
     let __pollTimer = null;
 
-    let user = null, profile = {}, activeView = 'dm', activeId = null, currentServerId = null;
-    let selectedMsg = null, isEditing = false, replyId = null, searchTerm = "";
+    let user = null,
+      profile = {},
+      activeView = "dm",
+      activeId = null,
+      currentServerId = null;
+
+    let selectedMsg = null,
+      isEditing = false,
+      replyId = null,
+      searchTerm = "";
+
     let currentServerName = null;
     let currentServerOwnerId = null;
 
-    // Friends main panel filter state
-    let friendsMode = "all"; // all | online | pending
+    let friendsMode = "all";
 
-    // ---------- Helpers ----------
-    function escHtml(s = "") {
-      return String(s)
+    let reactionMap = {};
+    let typingTimer = null;
+    let typingSub = null;
+    let typingCache = [];
+
+    /* ===== anti-flash signatures ===== */
+    let __dmListSig = "";
+    let __memberSig = "";
+    let __lastMemberCtx = "";
+    let __lastDmRefreshAt = 0;
+
+    /* ===== scroll stickiness ===== */
+    let __lastRenderedSig = "";
+    let __forceScrollBottomOnce = false;
+
+    /* ===== emoji picker target ===== */
+    let __emojiTarget = null;
+
+    /* ========= DOM HELPERS (fixes ALL quote/string issues) ========= */
+    function el(tag, attrs) {
+      const node = document.createElement(tag);
+      if (attrs) {
+        for (const [k, v] of Object.entries(attrs)) {
+          if (k === "class") node.className = v;
+          else if (k === "text") node.textContent = v;
+          else if (k === "html") node.innerHTML = v;
+          else if (k.startsWith("on") && typeof v === "function") node[k] = v;
+          else if (k === "style" && typeof v === "string") node.setAttribute("style", v);
+          else if (v != null) node.setAttribute(k, String(v));
+        }
+      }
+      for (let i = 2; i < arguments.length; i++) {
+        const c = arguments[i];
+        if (c == null) continue;
+        if (Array.isArray(c)) c.forEach(x => x && node.appendChild(x));
+        else node.appendChild(c);
+      }
+      return node;
+    }
+
+    function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+    function escHtml(s) {
+      s = s == null ? "" : String(s);
+      return s
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -345,34 +966,94 @@
         .replaceAll("'", "&#039;");
     }
 
-    function isImageUrl(url = "") {
-      const u = String(url).toLowerCase();
-      return u.startsWith("http") && (u.includes(".png") || u.includes(".jpg") || u.includes(".jpeg") || u.includes(".webp") || u.includes(".gif"));
+    function isImageUrl(url) {
+      const u = String(url || "").toLowerCase();
+      return (
+        u.startsWith("http") &&
+        (u.includes(".png") ||
+          u.includes(".jpg") ||
+          u.includes(".jpeg") ||
+          u.includes(".webp") ||
+          u.includes(".gif"))
+      );
     }
 
     function safeTime(ts) {
-      try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
-      catch { return ""; }
+      try {
+        return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      } catch {
+        return "";
+      }
+    }
+
+    function safeDayTime(ts) {
+      try {
+        const d = new Date(ts);
+        const now = new Date();
+        const sameDay = d.toDateString() === now.toDateString();
+        return sameDay
+          ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      } catch {
+        return "";
+      }
     }
 
     function renderPlaceholder(text) {
-      document.getElementById('msgs').innerHTML = `<div style="padding:40px; text-align:center; color:var(--muted);">${escHtml(text)}</div>`;
+      const wrap = document.getElementById("msgs");
+      wrap.innerHTML = "";
+      wrap.appendChild(
+        el("div", { html: '<div style="padding:40px;text-align:center;color:var(--muted)">' + escHtml(text) + "</div>" })
+      );
     }
 
     function statusColor(st) {
-      if (st === 'online') return 'var(--success)';
-      if (st === 'idle') return 'var(--warning)';
-      if (st === 'dnd') return 'var(--danger)';
-      return '#80848e';
+      if (st === "online") return "var(--success)";
+      if (st === "idle") return "var(--warning)";
+      if (st === "dnd") return "var(--danger)";
+      return "#80848e";
     }
 
+    function clampMenuToViewport(menuEl, x, y) {
+      const pad = 8;
+      menuEl.style.left = "0px";
+      menuEl.style.top = "0px";
+      const r = menuEl.getBoundingClientRect();
+      const maxX = window.innerWidth - r.width - pad;
+      const maxY = window.innerHeight - r.height - pad;
+      const nx = Math.max(pad, Math.min(x, maxX));
+      const ny = Math.max(pad, Math.min(y, maxY));
+      menuEl.style.left = nx + "px";
+      menuEl.style.top = ny + "px";
+    }
+
+    function membersPanelEl() { return document.getElementById("members-panel"); }
+
+    /* ========= POLLING ========= */
     function startPolling() {
       if (__pollTimer) clearInterval(__pollTimer);
-      __pollTimer = setInterval(() => {
+      __pollTimer = setInterval(async function () {
         if (isEditing) return;
-        if (activeView === 'pending') return;
-        if (activeView === 'dm' && activeId === null) return; // Friends screen
-        loadMessages();
+        // avoid hammering side panes causing flash
+        if (activeView === "pending") {
+          await updatePendingBadge();
+          return;
+        }
+
+        // friends panel is not messages; don't poll messages there
+        if (activeView === "dm" && activeId === null) {
+          await updatePendingBadge();
+          await refreshDmListOrdering();
+          return;
+        }
+
+        await updatePendingBadge();
+
+        // reduce flashing by not forcing full rebuild if unchanged
+        loadMessages(false);
+
+        // keep DM list ordering updated without flashing
+        if (activeView === "dm") await refreshDmListOrdering();
       }, 2000);
     }
 
@@ -381,87 +1062,59 @@
       __pollTimer = null;
     }
 
-    // ✅ Gradient preset helper
-    function setGradientPreset(v) {
-      const g = document.getElementById('user-settings-theme-gradient');
-      if (g) g.value = v || '';
-    }
-
-    // Safe DOM rendering of messages (prevents inline onclick quoting bugs)
-    function renderMessages(list) {
-      const wrap = document.getElementById("msgs");
-      wrap.innerHTML = "";
-
-      for (const m of list) {
-        const row = document.createElement("div");
-        row.className = "msg";
-
-        row.addEventListener("contextmenu", (e) => {
-          showMsgMenu(e, m.id, m.user_id, m.content, m.username);
-        });
-
-        const avatar = document.createElement("div");
-        avatar.className = "msg-img";
-        avatar.style.backgroundColor = "var(--brand)";
-        if (m.avatar_url) avatar.style.backgroundImage = `url('${m.avatar_url}')`;
-        avatar.onclick = () => openProfile(m.user_id);
-
-        const content = document.createElement("div");
-        content.className = "msg-content";
-
-        if (m.reply_msg) {
-          const reply = document.createElement("div");
-          reply.className = "reply-ref";
-          reply.textContent = `↳ ${m.reply_msg.username}: ${String(m.reply_msg.content).substring(0, 30)}...`;
-          content.appendChild(reply);
-        }
-
-        const header = document.createElement("div");
-        header.className = "msg-user";
-        header.innerHTML = `${escHtml(m.username)} <span class="msg-time">${escHtml(safeTime(m.created_at))}</span>`;
-        content.appendChild(header);
-
-        const text = document.createElement("div");
-        text.id = `text-${m.id}`;
-        text.style.color = "var(--text)";
-        text.style.whiteSpace = "pre-wrap";
-
-        if (isImageUrl(m.content)) {
-          const img = document.createElement("img");
-          img.src = m.content;
-          img.style.maxWidth = "300px";
-          img.style.borderRadius = "8px";
-          img.style.display = "block";
-          text.appendChild(img);
-        } else {
-          text.textContent = m.content || "";
-        }
-
-        content.appendChild(text);
-        row.appendChild(avatar);
-        row.appendChild(content);
-        wrap.appendChild(row);
-      }
-    }
-
-    // Wait until `_sb` exists (prevents "supabase undefined")
+    /* ========= SUPABASE WAIT ========= */
     async function waitForSb() {
       let tries = 0;
       while (!window._sb && tries < 80) {
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 50));
         tries++;
       }
       if (!window._sb) {
         alert("Supabase failed to initialize. Try running via http://localhost and disable blockers.");
-        throw new Error("Supabase client not initialized (window._sb missing).");
+        throw new Error("Supabase client not initialized.");
       }
       return window._sb;
     }
 
-    // ---------- AUTH ----------
+    /* ========= PRESENCE / STATUS HEARTBEAT ========= */
+    async function setPresence(status) {
+      await waitForSb();
+      if (!user) return;
+      const payload = { status: status, last_seen: new Date().toISOString() };
+      const { error } = await window._sb.from("profiles").update(payload).eq("id", user.id);
+      if (error) console.error(error);
+    }
+
+    function startPresenceHeartbeat() {
+      setInterval(() => {
+        if (!user) return;
+        window._sb
+          .from("profiles")
+          .update({ last_seen: new Date().toISOString() })
+          .eq("id", user.id)
+          .then(({ error }) => { if (error) console.error(error); });
+      }, 12000);
+    }
+
+    window.addEventListener("pagehide", () => { if (user) setPresence("offline"); });
+    document.addEventListener("visibilitychange", () => {
+      if (!user) return;
+      if (document.visibilityState === "hidden") setPresence("offline");
+      else setPresence(profile.status || "online");
+    });
+
+    function computeLiveStatus(p) {
+      const last = p && p.last_seen ? new Date(p.last_seen).getTime() : 0;
+      const onlineNow = last && (Date.now() - last) < 25000;
+      return onlineNow ? (p.status || "online") : "offline";
+    }
+
+    /* ========= AUTH ========= */
     async function handleAuth() {
       await waitForSb();
-      const e = document.getElementById('email').value, p = document.getElementById('pass').value;
+      const e = document.getElementById("email").value;
+      const p = document.getElementById("pass").value;
+
       const { error } = await window._sb.auth.signInWithPassword({ email: e, password: p });
       if (error) {
         const { error: e2 } = await window._sb.auth.signUp({ email: e, password: p });
@@ -475,6 +1128,15 @@
       location.reload();
     }
 
+    /* enter key submits auth */
+    document.addEventListener("keydown", (ev) => {
+      const authOpen = document.getElementById("auth-screen").style.display !== "none";
+      if (authOpen && ev.key === "Enter") {
+        const ae = document.activeElement;
+        if (ae && (ae.id === "email" || ae.id === "pass")) handleAuth();
+      }
+    });
+
     (async function boot() {
       const sb = await waitForSb();
 
@@ -482,160 +1144,453 @@
         if (sess && !__didInit) {
           __didInit = true;
           user = sess.user;
-          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById("auth-screen").style.display = "none";
           init();
         }
         if (!sess) {
-          document.getElementById('auth-screen').style.display = 'block';
+          document.getElementById("auth-screen").style.display = "block";
         }
       });
 
       const { data } = await sb.auth.getSession();
-      if (data?.session && !__didInit) {
+      if (data && data.session && !__didInit) {
         __didInit = true;
         user = data.session.user;
-        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById("auth-screen").style.display = "none";
         init();
       }
     })();
 
-    // ---------- INIT ----------
     async function init() {
       await waitForSb();
 
-      // NOTE: For theme to persist, your `profiles` table needs:
-      // theme_color text, theme_gradient text
-      // (plus your existing: banner_url, avatar_url, status, username, id)
-
-      // Load or create profile (includes banner_url + theme fields)
-      const { data, error } = await window._sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      const { data, error } = await window._sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
       if (error) console.error(error);
 
       if (!data) {
         const defaultProfile = {
           id: user.id,
-          username: (user.email || "user").split('@')[0],
-          status: 'online',
+          username: (user.email || "user").split("@")[0],
+          status: "online",
           avatar_url: null,
           banner_url: null,
-          theme_color: "#5865f2",
-          theme_gradient: null
+          last_seen: new Date().toISOString()
         };
-        const { error: upErr } = await window._sb.from('profiles').upsert(defaultProfile);
+        const { error: upErr } = await window._sb.from("profiles").upsert(defaultProfile);
         if (upErr) console.error(upErr);
         profile = defaultProfile;
       } else {
         profile = data;
-        if (!profile.username) profile.username = (user.email || "user").split('@')[0];
-        if (!profile.status) profile.status = 'online';
-        if (!profile.theme_color) profile.theme_color = "#5865f2";
+        if (!profile.username) profile.username = (user.email || "user").split("@")[0];
+        if (!profile.status) profile.status = "online";
       }
 
-      document.getElementById('my-name').innerText = profile.username || 'User';
-      document.getElementById('user-settings-name').value = profile.username || '';
-      document.getElementById('user-settings-avatar').value = profile.avatar_url || '';
-      document.getElementById('user-settings-banner').value = profile.banner_url || '';
+      document.getElementById("my-name").innerText = profile.username || "User";
+      document.getElementById("user-settings-name").value = profile.username || "";
+      document.getElementById("user-settings-avatar").value = profile.avatar_url || "";
+      document.getElementById("user-settings-banner").value = profile.banner_url || "";
 
-      // Theme inputs
-      const picker = document.getElementById('user-settings-theme-color-picker');
-      if (picker) picker.value = (profile.theme_color || '#5865f2');
-      const gIn = document.getElementById('user-settings-theme-gradient');
-      if (gIn) gIn.value = (profile.theme_gradient || '');
+      const myAva = document.getElementById("my-avatar-img");
+      myAva.style.backgroundImage = profile.avatar_url ? "url('" + profile.avatar_url + "')" : "none";
 
-      if (profile.avatar_url) document.getElementById('my-avatar-img').style.backgroundImage = `url('${profile.avatar_url}')`;
-      setStatus(profile.status || 'online', false);
+      setStatus(profile.status || "online", false);
+      await setPresence(profile.status || "online");
+      startPresenceHeartbeat();
 
-      loadServers();
-      switchView('dm');
+      const mi = document.getElementById("mIn");
+      mi.setAttribute("autocomplete", "off");
+      mi.value = "";
 
+      // enter key submits in modals (friend add, join, create, server name, settings)
+      wireEnterKeyForModals();
+
+      // emoji picker init
+      initEmojiPicker();
+
+      await updatePendingBadge();
+      await loadServers();
+
+      // show DM view shell + DM conversations list
+      switchView("dm");
       startPolling();
     }
 
-    // ---------- NAV / VIEWS ----------
-    function switchView(view, id = null, name = null) {
-      activeView = view;
+    function wireEnterKeyForModals() {
+      const bind = (id, fn) => {
+        const elx = document.getElementById(id);
+        if (!elx) return;
+        elx.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") fn();
+        });
+      };
+      bind("friend-username", submitAddFriend);
+      bind("join-server-id", submitJoinServer);
+      bind("new-server-name", submitCreateServer);
+      bind("edit-server-name", updateServerName);
+      bind("user-settings-banner", saveUserSettings);
+      bind("user-settings-avatar", saveUserSettings);
+      bind("user-settings-name", saveUserSettings);
+      bind("email", handleAuth);
+      bind("pass", handleAuth);
+    }
 
-      // Clear icon highlights
-      document.querySelectorAll('.icon').forEach(i => i.classList.remove('active'));
+    /* ========= EMOJI PICKER ========= */
+    function initEmojiPicker() {
+      const wrap = document.getElementById("emoji-picker-wrap");
+      if (!wrap) return;
+      wrap.innerHTML = "";
+      try {
+        new EmojiMart.Picker({
+          parent: wrap,
+          data: async () => {
+            const res = await fetch("https://cdn.jsdelivr.net/npm/@emoji-mart/data");
+            return res.json();
+          },
+          theme: "auto",
+          onEmojiSelect: (emoji) => {
+            const chosen = emoji && emoji.native ? emoji.native : null;
+            if (!chosen) return;
 
-      const sc = document.getElementById('side-content');
+            // target reaction or insert into input
+            if (__emojiTarget && __emojiTarget.type === "reaction") {
+              toggleReaction(__emojiTarget.messageId, chosen);
+              document.getElementById("emoji-modal").style.display = "none";
+              __emojiTarget = null;
+              return;
+            }
+            // default: insert into message input
+            const inp = document.getElementById("mIn");
+            if (inp) inp.value = (inp.value || "") + chosen;
+            document.getElementById("emoji-modal").style.display = "none";
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-      if (view === 'dm' || view === 'notes' || view === 'pending') {
-        if (view === 'dm') activeId = null;
+    function openEmojiPickerForReaction(messageId) {
+      __emojiTarget = { type: "reaction", messageId };
+      document.getElementById("emoji-modal").style.display = "flex";
+    }
 
-        document.getElementById('dm-rail-btn').classList.add('active');
-        document.getElementById('side-title').innerText = "Direct Messages";
+    /* ========= TYPING ========= */
+    function currentTypingContext() {
+      if (activeView === "dm" && activeId) return { dm_id: activeId, channel_id: null, note_user_id: null };
+      if (activeView === "chan" && activeId) return { dm_id: null, channel_id: activeId, note_user_id: null };
+      if (activeView === "notes") return { dm_id: null, channel_id: null, note_user_id: user.id };
+      return null;
+    }
 
-        // Sidebar stays like Discord (buttons only)
-        sc.innerHTML = `
-          <div class="category">Direct Messages <span onclick="document.getElementById('add-friend-modal').style.display='flex'" style="cursor:pointer; font-size:16px;">+</span></div>
-          <div class="item ${view==='dm'?'active':''}" onclick="switchView('dm')">Friends</div>
-          <div class="item ${view==='pending'?'active':''}" onclick="switchView('pending')">Pending</div>
-          <div class="item ${view==='notes'?'active':''}" onclick="switchView('notes')">Notes</div>
-        `;
+    async function loadTypingNow() {
+      const ctx = currentTypingContext();
+      typingCache = [];
+      renderTypingLine();
+      if (!ctx) return;
 
-        // Members panel empty in DM/notes
-        document.getElementById('member-list').innerHTML = '';
+      let q = window._sb.from("typing_indicators").select("*");
+      if (ctx.dm_id) q = q.eq("dm_id", ctx.dm_id);
+      if (ctx.channel_id) q = q.eq("channel_id", ctx.channel_id);
+      if (ctx.note_user_id) q = q.eq("note_user_id", ctx.note_user_id);
 
-        document.getElementById('chat-input-area').style.display = (view === 'pending' || view === 'dm') ? 'none' : 'block';
+      const { data, error } = await q;
+      if (error) { console.error(error); return; }
+      typingCache = data || [];
+      renderTypingLine();
+    }
 
-        if (view === 'dm') {
-          document.getElementById('chat-header-text').innerText = "Friends";
-          renderFriendsPanel();
-          startPolling();
-          return;
-        }
+    function renderTypingLine() {
+      const line = document.getElementById("typing-line");
+      if (!line) return;
 
-        document.getElementById('chat-header-text').innerText = view.charAt(0).toUpperCase() + view.slice(1);
+      const now = Date.now();
+      const live = (typingCache || [])
+        .filter(t => t.user_id !== user.id)
+        .filter(t => new Date(t.expires_at).getTime() > now);
 
-        if (view === 'pending') loadPendingRequests();
-        else loadMessages();
-
-        startPolling();
+      if (!live.length) {
+        line.style.display = "none";
+        line.textContent = "";
         return;
       }
 
-      // ✅ SERVER MODE
-      if (view === 'server') {
+      const names = [...new Set(live.map(t => t.username || "User"))].slice(0, 3);
+      line.style.display = "block";
+      line.textContent =
+        names.length === 1 ? names[0] + " is typing…"
+        : names.length === 2 ? names[0] + " and " + names[1] + " are typing…"
+        : names[0] + ", " + names[1] + ", and others are typing…";
+    }
+
+    function clearTypingSub() {
+      try { if (typingSub) typingSub.unsubscribe(); } catch {}
+      typingSub = null;
+    }
+
+    function subscribeTyping() {
+      clearTypingSub();
+      const ctx = currentTypingContext();
+      if (!ctx) return;
+
+      const filter =
+        ctx.dm_id ? "dm_id=eq." + ctx.dm_id
+        : ctx.channel_id ? "channel_id=eq." + ctx.channel_id
+        : "note_user_id=eq." + ctx.note_user_id;
+
+      const channel = window._sb.channel("typing:" + (ctx.dm_id || "") + ":" + (ctx.channel_id || "") + ":" + (ctx.note_user_id || ""));
+      typingSub = channel
+        .on("postgres_changes", { event: "*", schema: "public", table: "typing_indicators", filter }, () => {
+          loadTypingNow();
+        })
+        .subscribe();
+
+      loadTypingNow();
+    }
+
+    async function deleteMyTyping() {
+      const ctx = currentTypingContext();
+      if (!ctx) return;
+
+      let q = window._sb.from("typing_indicators").delete().eq("user_id", user.id);
+      if (ctx.dm_id) q = q.eq("dm_id", ctx.dm_id);
+      if (ctx.channel_id) q = q.eq("channel_id", ctx.channel_id);
+      if (ctx.note_user_id) q = q.eq("note_user_id", ctx.note_user_id);
+
+      const { error } = await q;
+      if (error) console.error(error);
+    }
+
+    async function upsertTyping() {
+      const ctx = currentTypingContext();
+      if (!ctx) return;
+
+      const expires = new Date(Date.now() + 6000).toISOString();
+      const payload = {
+        user_id: user.id,
+        username: profile.username || "User",
+        expires_at: expires,
+        ...ctx
+      };
+
+      const { error } = await window._sb.from("typing_indicators").insert([payload]);
+      if (error) {
+        await deleteMyTyping();
+        const { error: e2 } = await window._sb.from("typing_indicators").insert([payload]);
+        if (e2) console.error(e2);
+      }
+    }
+
+    setInterval(renderTypingLine, 1000);
+
+    /* ========= REACTIONS ========= */
+    async function loadReactionsForMessages(messageIds) {
+      reactionMap = {};
+      if (!messageIds.length) return;
+
+      const { data, error } = await window._sb
+        .from("message_reactions")
+        .select("message_id, user_id, emoji")
+        .in("message_id", messageIds);
+
+      if (error) { console.error(error); return; }
+
+      const map = {};
+      for (const r of (data || [])) {
+        map[r.message_id] ??= {};
+        map[r.message_id][r.emoji] ??= { count: 0, me: false };
+        map[r.message_id][r.emoji].count += 1;
+        if (r.user_id === user.id) map[r.message_id][r.emoji].me = true;
+      }
+      reactionMap = map;
+    }
+
+    async function toggleReaction(messageId, emoji) {
+      await waitForSb();
+
+      const { data: existing, error: e1 } = await window._sb
+        .from("message_reactions")
+        .select("id")
+        .eq("message_id", messageId)
+        .eq("user_id", user.id)
+        .eq("emoji", emoji)
+        .maybeSingle();
+
+      if (e1) { console.error(e1); return alert(e1.message); }
+
+      if (existing) {
+        const { error: e2 } = await window._sb.from("message_reactions").delete().eq("id", existing.id);
+        if (e2) { console.error(e2); return alert(e2.message); }
+      } else {
+        const { error: e3 } = await window._sb.from("message_reactions").insert([{ message_id: messageId, user_id: user.id, emoji }]);
+        if (e3) { console.error(e3); return alert(e3.message); }
+      }
+
+      loadMessages(false);
+    }
+
+    /* ========= NAV / VIEWS ========= */
+    function switchView(view, id, name) {
+      if (id === void 0) id = null;
+      if (name === void 0) name = null;
+
+      activeView = view;
+      document.querySelectorAll(".icon").forEach((i) => i.classList.remove("active"));
+
+      const sc = document.getElementById("side-content");
+
+      if (view === "dm" || view === "notes" || view === "pending") {
+        // IMPORTANT: don't wipe activeId if user is opening a dm thread
+        if (view === "dm" && (id === null || id === undefined)) activeId = null;
+
+        document.getElementById("dm-rail-btn").classList.add("active");
+        document.getElementById("side-title").innerText = "Direct Messages";
+
+        clear(sc);
+
+        // ✅ FIX: sidebar got rebuilt (new container), so force DM list to render into it
+        __dmListSig = "";
+
+        const cat = el("div", { class: "category" });
+        const catLeft = el("span", { text: "Direct Messages" });
+        const catPlus = el("span", { text: "+", style: "cursor:pointer;font-size:16px" });
+        catPlus.onclick = () => (document.getElementById("add-friend-modal").style.display = "flex");
+        cat.appendChild(catLeft);
+        cat.appendChild(catPlus);
+        sc.appendChild(cat);
+
+        // Main nav items
+        function addItem(label, v, opts) {
+          const it = el("div", { class: "item" + (view === v ? " active" : "") });
+          it.appendChild(el("span", { text: label }));
+          if (opts && opts.badgeId) {
+            const b = el("span", { class: "badge", id: opts.badgeId, text: "0" });
+            it.appendChild(b);
+          }
+          it.onclick = () => switchView(v);
+          sc.appendChild(it);
+        }
+
+        addItem("Friends", "dm");
+        addItem("Pending", "pending", { badgeId: "pending-badge" });
+        addItem("Notes", "notes");
+
+        // Conversations list container (DM threads) - always visible in DM section
+        const convCat = el("div", { class: "category", text: "Conversations" });
+        sc.appendChild(convCat);
+        const convWrap = el("div", { });
+        convWrap.setAttribute("data-dm-convos", "1");
+        sc.appendChild(convWrap);
+
+        // Members visibility
+        updateMembersVisibilityAndContent();
+
+        // Input area hidden for friends list/pending; shown for notes and actual dm thread
+        const input = document.getElementById("chat-input-area");
+        input.style.display = (view === "pending" || (view === "dm" && activeId === null)) ? "none" : "block";
+
+        if (view === "dm" && activeId === null) {
+          document.getElementById("chat-header-text").innerText = "Friends";
+          renderFriendsPanel();
+          deleteMyTyping();
+          clearTypingSub();
+
+          // ✅ FIX: make sure conv list is immediately populated in the new container
+          refreshDmListOrdering(true);
+
+          updatePendingBadge();
+          return;
+        }
+
+        document.getElementById("chat-header-text").innerText = view.charAt(0).toUpperCase() + view.slice(1);
+        if (view === "pending") loadPendingRequests();
+        else loadMessages(true);
+
+        // ✅ FIX: same reason—new sidebar container
+        refreshDmListOrdering(true);
+
+        subscribeTyping();
+        startPolling();
+        updatePendingBadge();
+        return;
+      }
+
+      if (view === "server") {
         currentServerId = id;
         currentServerName = name || "Server";
         activeId = null;
 
-        // highlight server icon
-        document.querySelectorAll("#server-rail .icon").forEach(i => i.classList.remove("active"));
-        const icons = document.querySelectorAll("#server-rail .icon");
-        for (const ic of icons) {
+        document.querySelectorAll("#server-rail .icon").forEach((i) => i.classList.remove("active"));
+        document.querySelectorAll("#server-rail .icon").forEach((ic) => {
           if (ic.getAttribute("data-sid") === String(id)) ic.classList.add("active");
-        }
+        });
 
-        document.getElementById('chat-input-area').style.display = 'block';
+        document.getElementById("chat-input-area").style.display = "block";
         loadChannels(id, name);
+        subscribeTyping();
         startPolling();
+        updateMembersVisibilityAndContent();
         return;
       }
 
-      // channel view is set by openChannel()
       startPolling();
     }
 
-    // ---------- FRIENDS PANEL ----------
-    async function renderFriendsPanel() {
-      const wrap = document.getElementById('msgs');
-      wrap.innerHTML = "";
+    /* ========= MEMBERS BAR VISIBILITY ========= */
+    function updateMembersVisibilityAndContent() {
+      const panel = membersPanelEl();
+      if (!panel) return;
 
-      const toolbar = document.createElement('div');
-      toolbar.className = 'friends-toolbar';
-      toolbar.innerHTML = `
-        <div class="pill ${friendsMode==='all'?'active':''}" onclick="setFriendsMode('all')">All</div>
-        <div class="pill ${friendsMode==='online'?'active':''}" onclick="setFriendsMode('online')">Online</div>
-        <div class="pill ${friendsMode==='pending'?'active':''}" onclick="setFriendsMode('pending')">Pending</div>
-      `;
+      const ctxKey = activeView + ":" + (activeId || "") + ":" + (currentServerId || "");
+      if (ctxKey === __lastMemberCtx && activeView !== "chan" && activeView !== "dm") return;
+      __lastMemberCtx = ctxKey;
+
+      // hide when not in a chat
+      const shouldShow =
+        (activeView === "chan" && activeId) ||
+        (activeView === "dm" && activeId) ||
+        (activeView === "server" && currentServerId && activeId); // server will open a channel anyway
+
+      if (!shouldShow) {
+        panel.classList.add("hidden");
+        return;
+      }
+
+      panel.classList.remove("hidden");
+
+      // render members for current context
+      if (activeView === "chan" && activeId) {
+        loadServerMembers(currentServerId);
+        return;
+      }
+      if (activeView === "dm" && activeId) {
+        renderMembersForDmThread(activeId);
+        return;
+      }
+    }
+
+    /* ========= FRIENDS PANEL ========= */
+    async function renderFriendsPanel() {
+      const wrap = document.getElementById("msgs");
+      clear(wrap);
+
+      const toolbar = el("div", { class: "friends-toolbar" });
+      const pillAll = el("div", { class: "pill " + (friendsMode === "all" ? "active" : ""), text: "All" });
+      const pillOn = el("div", { class: "pill " + (friendsMode === "online" ? "active" : ""), text: "Online" });
+      const pillPen = el("div", { class: "pill " + (friendsMode === "pending" ? "active" : ""), text: "Pending" });
+
+      pillAll.onclick = () => setFriendsMode("all");
+      pillOn.onclick = () => setFriendsMode("online");
+      pillPen.onclick = () => setFriendsMode("pending");
+
+      toolbar.appendChild(pillAll);
+      toolbar.appendChild(pillOn);
+      toolbar.appendChild(pillPen);
       wrap.appendChild(toolbar);
 
-      const hint = document.createElement('div');
-      hint.style.color = 'var(--muted)';
-      hint.style.fontSize = '12px';
-      hint.style.margin = '0 0 10px 0';
+      const hint = el("div", { });
+      hint.style.color = "var(--muted)";
+      hint.style.fontSize = "12px";
+      hint.style.margin = "0 0 10px 0";
       hint.textContent = "Tip: use the + in the left sidebar to add a friend by username.";
       wrap.appendChild(hint);
 
@@ -645,158 +1600,338 @@
       }
 
       const friends = await loadFriendsListDeduped();
-      const filtered = friends.filter(f => {
-        if (friendsMode === 'online') return (f.status || 'offline') === 'online';
-        return true;
-      }).filter(f => (f.username || '').toLowerCase().includes(searchTerm || ''));
+      const filtered = friends
+        .filter((f) => (friendsMode === "online" ? (computeLiveStatus(f) === "online") : true))
+        .filter((f) => (f.username || "").toLowerCase().includes(searchTerm || ""));
 
       if (filtered.length === 0) {
-        const empty = document.createElement('div');
+        const empty = el("div", {} );
         empty.style.padding = "30px 0";
         empty.style.textAlign = "center";
         empty.style.color = "var(--muted)";
-        empty.textContent = (friendsMode === 'online') ? "No friends are online." : "No friends yet.";
+        empty.textContent = friendsMode === "online" ? "No friends are online." : "No friends yet.";
         wrap.appendChild(empty);
         return;
       }
 
       for (const f of filtered) {
-        const row = document.createElement('div');
-        row.className = 'friend-row';
+        const row = el("div", { class: "friend-row" });
 
-        const ava = document.createElement('div');
-        ava.className = 'friend-ava';
-        if (f.avatar_url) ava.style.backgroundImage = `url('${f.avatar_url}')`;
-        ava.style.backgroundColor = 'var(--brand)';
+        const ava = el("div", { class: "friend-ava" });
+        if (f.avatar_url) ava.style.backgroundImage = "url('" + f.avatar_url + "')";
 
-        const dot = document.createElement('div');
-        dot.className = 'status-dot';
-        dot.style.borderColor = 'var(--chat)';
-        dot.style.width = '10px';
-        dot.style.height = '10px';
-        dot.style.borderWidth = '3px';
-        dot.style.right = '-2px';
-        dot.style.bottom = '-2px';
-        dot.style.background = statusColor(f.status || 'offline');
+        const dot = el("div", { class: "status-dot" });
+        dot.style.borderColor = "var(--chat)";
+        dot.style.width = "10px";
+        dot.style.height = "10px";
+        dot.style.borderWidth = "3px";
+        dot.style.right = "-2px";
+        dot.style.bottom = "-2px";
+        dot.style.background = statusColor(computeLiveStatus(f));
         ava.appendChild(dot);
 
         ava.onclick = (e) => { e.stopPropagation(); openProfile(f.id); };
 
-        const meta = document.createElement('div');
-        meta.className = 'friend-meta';
-
-        const name = document.createElement('div');
-        name.className = 'friend-name';
-        name.textContent = f.username || 'User';
-
-        const sub = document.createElement('div');
-        sub.className = 'friend-sub';
-        sub.textContent = `Status: ${f.status || 'offline'}`;
-
+        const meta = el("div", { class: "friend-meta" });
+        const name = el("div", { class: "friend-name", text: f.username || "User" });
+        const sub = el("div", { class: "friend-sub", text: "Status: " + computeLiveStatus(f) });
         meta.appendChild(name);
         meta.appendChild(sub);
 
-        const actions = document.createElement('div');
-        actions.className = 'friend-actions';
-
-        const msgBtn = document.createElement('button');
-        msgBtn.className = 'mini-btn';
-        msgBtn.textContent = 'Message';
+        const actions = el("div", { class: "friend-actions" });
+        const msgBtn = el("button", { class: "mini-btn", text: "Message" });
         msgBtn.onclick = (e) => { e.stopPropagation(); openDmWith(f.id, f.username); };
 
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'mini-btn';
-        viewBtn.textContent = 'Profile';
+        const viewBtn = el("button", { class: "mini-btn", text: "Profile" });
         viewBtn.onclick = (e) => { e.stopPropagation(); openProfile(f.id); };
+
+        const rmBtn = el("button", { class: "mini-btn", text: "Remove" });
+        rmBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await removeFriend(f.id);
+        };
 
         actions.appendChild(msgBtn);
         actions.appendChild(viewBtn);
+        actions.appendChild(rmBtn);
 
         row.appendChild(ava);
         row.appendChild(meta);
         row.appendChild(actions);
 
         row.onclick = () => openDmWith(f.id, f.username);
-
         wrap.appendChild(row);
       }
     }
 
-    function setFriendsMode(m) { friendsMode = m; renderFriendsPanel(); }
+    function setFriendsMode(m) {
+      friendsMode = m;
+      renderFriendsPanel();
+    }
+
+    async function removeFriend(friendId) {
+      await waitForSb();
+      if (!confirm("Remove this friend?")) return;
+
+      // remove friend_requests accepted in either direction
+      const { error: e1 } = await window._sb
+        .from("friend_requests")
+        .delete()
+        .or(
+          "and(from_user_id.eq." + user.id + ",to_user_id.eq." + friendId + ",status.eq.accepted)," +
+          "and(from_user_id.eq." + friendId + ",to_user_id.eq." + user.id + ",status.eq.accepted)"
+        );
+
+      if (e1) { console.error(e1); alert(e1.message); return; }
+
+      // remove DM thread (best effort)
+      const a = user.id, b = friendId;
+      const user1 = a < b ? a : b;
+      const user2 = a < b ? b : a;
+      const { data: th } = await window._sb.from("dm_threads").select("id").eq("user1", user1).eq("user2", user2).maybeSingle();
+      if (th && th.id) {
+        await window._sb.from("messages").delete().eq("dm_id", th.id);
+        await window._sb.from("dm_threads").delete().eq("id", th.id);
+      }
+
+      if (activeView === "dm" && activeId === null) renderFriendsPanel();
+      await refreshDmListOrdering(true);
+    }
+
+    /* ========= FRIEND REQUESTS ========= */
+    async function submitAddFriend() {
+      await waitForSb();
+      const unameRaw = document.getElementById("friend-username").value.trim();
+      if (!unameRaw) return alert("Enter a username.");
+
+      const { data: target, error: e1 } = await window._sb
+        .from("profiles")
+        .select("id, username")
+        .eq("username", unameRaw)
+        .maybeSingle();
+
+      if (e1) { console.error(e1); return alert("Error searching user."); }
+      if (!target) return alert("User not found.");
+      if (target.id === user.id) return alert("You can’t add yourself.");
+
+      const { data: existing, error: e2 } = await window._sb
+        .from("friend_requests")
+        .select("id, status, from_user_id, to_user_id")
+        .or(
+          "and(from_user_id.eq." + user.id + ",to_user_id.eq." + target.id + "),and(from_user_id.eq." + target.id + ",to_user_id.eq." + user.id + ")"
+        );
+
+      if (e2) console.error(e2);
+
+      const existingList = existing || [];
+      const alreadyAccepted = existingList.some((r) => r.status === "accepted");
+      const alreadyPending = existingList.some((r) => r.status === "pending");
+
+      if (alreadyAccepted) return alert("You’re already friends.");
+      if (alreadyPending) {
+        const incoming = existingList.find((r) => r.status === "pending" && r.to_user_id === user.id);
+        if (incoming) return alert("They already sent you a request. Check Pending.");
+        return alert("Friend request already sent.");
+      }
+
+      const { error: e4 } = await window._sb
+        .from("friend_requests")
+        .insert([{ from_user_id: user.id, to_user_id: target.id, status: "pending" }]);
+
+      if (e4) return alert(e4.message);
+
+      alert("Request sent!");
+      document.getElementById("add-friend-modal").style.display = "none";
+      document.getElementById("friend-username").value = "";
+
+      await updatePendingBadge();
+      if (activeView === "dm" && activeId === null) renderFriendsPanel();
+    }
+
+    async function updatePendingBadge() {
+      await waitForSb();
+      if (!user) return;
+
+      const { data, error } = await window._sb
+        .from("friend_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("to_user_id", user.id)
+        .eq("status", "pending");
+
+      if (error) { console.error(error); return; }
+
+      const badge = document.getElementById("pending-badge");
+      if (!badge) return;
+
+      const count = (data && data.length) ? data.length : (typeof error === "object" ? 0 : 0);
+      // supabase head: true returns data as null, count accessible via response in some builds; fall back query without head
+      if (badge && (count === 0 || count == null)) {
+        const { data: rows } = await window._sb
+          .from("friend_requests")
+          .select("id")
+          .eq("to_user_id", user.id)
+          .eq("status", "pending");
+        const n = (rows || []).length;
+        badge.textContent = String(n);
+        badge.style.display = n > 0 ? "inline-flex" : "none";
+        return;
+      }
+
+      badge.textContent = String(count || 0);
+      badge.style.display = (count || 0) > 0 ? "inline-flex" : "none";
+    }
+
+    async function loadPendingRequests() {
+      await waitForSb();
+      const msgs = document.getElementById("msgs");
+      clear(msgs);
+
+      const { data: reqs, error } = await window._sb
+        .from("friend_requests")
+        .select("id, from_user_id, to_user_id, status")
+        .eq("to_user_id", user.id)
+        .eq("status", "pending");
+
+      if (error) {
+        console.error(error);
+        renderPlaceholder("Error loading requests.");
+        return;
+      }
+
+      if (!reqs || reqs.length === 0) {
+        msgs.appendChild(el("div", { html: '<div style="padding:40px;text-align:center">No requests.</div>' }));
+        return;
+      }
+
+      const fromIds = reqs.map((r) => r.from_user_id);
+      const { data: profs, error: e2 } = await window._sb.from("profiles").select("id, username, avatar_url, status, last_seen").in("id", fromIds);
+      if (e2) console.error(e2);
+      const byId = Object.fromEntries((profs || []).map((p) => [p.id, p]));
+
+      for (const r of reqs) {
+        const u = byId[r.from_user_id];
+        const uname = (u && u.username) || "User";
+
+        const row = el("div", { class: "msg" });
+        row.style.background = "rgba(255,255,255,0.05)";
+        row.style.padding = "15px";
+        row.style.borderRadius = "8px";
+        row.style.alignItems = "center";
+
+        const label = el("div", { class: "msg-user", text: uname + " wants to be friends." });
+        label.style.flex = "1";
+
+        const accept = el("button", { class: "btn-brand", text: "Accept" });
+        accept.style.width = "auto";
+        accept.style.padding = "8px 20px";
+        accept.style.marginRight = "5px";
+        accept.onclick = () => respondFriend(r.id, "accepted");
+
+        const decline = el("button", { class: "btn-brand btn-danger", text: "Decline" });
+        decline.style.width = "auto";
+        decline.style.padding = "8px 20px";
+        decline.onclick = () => respondFriend(r.id, "declined");
+
+        row.appendChild(label);
+        row.appendChild(accept);
+        row.appendChild(decline);
+
+        msgs.appendChild(row);
+      }
+    }
+
+    async function respondFriend(rid, status) {
+      await waitForSb();
+
+      const { data: req, error: e1 } = await window._sb
+        .from("friend_requests")
+        .update({ status: status })
+        .eq("id", rid)
+        .select("from_user_id, to_user_id, status")
+        .maybeSingle();
+
+      if (e1) { console.error(e1); alert(e1.message); return; }
+
+      if (status === "accepted" && req) {
+        const a = req.from_user_id;
+        const b = req.to_user_id;
+        const user1 = a < b ? a : b;
+        const user2 = a < b ? b : a;
+        const { error: e2 } = await window._sb.from("dm_threads").insert([{ user1: user1, user2: user2 }]);
+        if (e2) console.error(e2);
+      }
+
+      await updatePendingBadge();
+      await refreshDmListOrdering(true);
+
+      if (activeView === "dm" && activeId === null) renderFriendsPanel();
+      if (activeView === "pending") loadPendingRequests();
+    }
 
     async function renderPendingInFriendsPanel() {
-      const wrap = document.getElementById('msgs');
+      const wrap = document.getElementById("msgs");
 
       const { data: incoming } = await window._sb
-        .from('friend_requests')
-        .select('id, from_user_id, to_user_id, status')
-        .eq('to_user_id', user.id)
-        .eq('status', 'pending');
+        .from("friend_requests")
+        .select("id, from_user_id, to_user_id, status")
+        .eq("to_user_id", user.id)
+        .eq("status", "pending");
 
       const { data: outgoing } = await window._sb
-        .from('friend_requests')
-        .select('id, from_user_id, to_user_id, status')
-        .eq('from_user_id', user.id)
-        .eq('status', 'pending');
+        .from("friend_requests")
+        .select("id, from_user_id, to_user_id, status")
+        .eq("from_user_id", user.id)
+        .eq("status", "pending");
 
-      const inIds = (incoming || []).map(r => r.from_user_id);
-      const outIds = (outgoing || []).map(r => r.to_user_id);
-      const allIds = Array.from(new Set([...inIds, ...outIds]));
+      const inIds = (incoming || []).map((r) => r.from_user_id);
+      const outIds = (outgoing || []).map((r) => r.to_user_id);
+      const allIds = Array.from(new Set(inIds.concat(outIds)));
 
       let profs = [];
       if (allIds.length > 0) {
-        const { data: p } = await window._sb.from('profiles').select('id, username, avatar_url, status').in('id', allIds);
+        const { data: p } = await window._sb.from("profiles").select("id, username, avatar_url, status, last_seen").in("id", allIds);
         profs = p || [];
       }
-      const byId = Object.fromEntries(profs.map(p => [p.id, p]));
+      const byId = Object.fromEntries(profs.map((p) => [p.id, p]));
 
-      const section = document.createElement('div');
-      section.style.marginTop = '8px';
-      section.style.display = 'flex';
-      section.style.flexDirection = 'column';
-      section.style.gap = '10px';
+      const section = el("div", {});
+      section.style.marginTop = "8px";
+      section.style.display = "flex";
+      section.style.flexDirection = "column";
+      section.style.gap = "10px";
 
-      const h1 = document.createElement('div');
-      h1.style.color = 'var(--muted)';
-      h1.style.fontSize = '12px';
-      h1.style.fontWeight = '700';
-      h1.textContent = 'Incoming requests';
+      const h1 = el("div", {});
+      h1.style.color = "var(--muted)";
+      h1.style.fontSize = "12px";
+      h1.style.fontWeight = "800";
+      h1.textContent = "Incoming requests";
       section.appendChild(h1);
 
       if (!incoming || incoming.length === 0) {
-        const none = document.createElement('div');
-        none.style.color = 'var(--muted)';
-        none.style.fontSize = '13px';
-        none.textContent = 'No incoming requests.';
+        const none = el("div", {});
+        none.style.color = "var(--muted)";
+        none.style.fontSize = "13px";
+        none.textContent = "No incoming requests.";
         section.appendChild(none);
       } else {
         for (const r of incoming) {
-          const p = byId[r.from_user_id] || { username: 'User', status: 'offline' };
-          const row = document.createElement('div');
-          row.className = 'friend-row';
-          row.style.cursor = 'default';
+          const p = byId[r.from_user_id] || { username: "User", status: "offline" };
+          const row = el("div", { class: "friend-row" });
+          row.style.cursor = "default";
 
-          const ava = document.createElement('div');
-          ava.className = 'friend-ava';
-          if (p.avatar_url) ava.style.backgroundImage = `url('${p.avatar_url}')`;
+          const ava = el("div", { class: "friend-ava" });
+          if (p.avatar_url) ava.style.backgroundImage = "url('" + p.avatar_url + "')";
           ava.onclick = () => openProfile(r.from_user_id);
 
-          const meta = document.createElement('div');
-          meta.className = 'friend-meta';
-          meta.innerHTML = `<div class="friend-name">${escHtml(p.username)}</div><div class="friend-sub">Wants to be friends</div>`;
+          const meta = el("div", { class: "friend-meta" });
+          meta.appendChild(el("div", { class: "friend-name", text: p.username || "User" }));
+          meta.appendChild(el("div", { class: "friend-sub", text: "Wants to be friends" }));
 
-          const actions = document.createElement('div');
-          actions.className = 'friend-actions';
-
-          const aBtn = document.createElement('button');
-          aBtn.className = 'mini-btn';
-          aBtn.textContent = 'Accept';
-          aBtn.onclick = () => respondFriend(r.id, 'accepted');
-
-          const dBtn = document.createElement('button');
-          dBtn.className = 'mini-btn';
-          dBtn.textContent = 'Decline';
-          dBtn.onclick = () => respondFriend(r.id, 'declined');
+          const actions = el("div", { class: "friend-actions" });
+          const aBtn = el("button", { class: "mini-btn", text: "Accept" });
+          const dBtn = el("button", { class: "mini-btn", text: "Decline" });
+          aBtn.onclick = () => respondFriend(r.id, "accepted");
+          dBtn.onclick = () => respondFriend(r.id, "declined");
 
           actions.appendChild(aBtn);
           actions.appendChild(dBtn);
@@ -804,56 +1939,47 @@
           row.appendChild(ava);
           row.appendChild(meta);
           row.appendChild(actions);
-
           section.appendChild(row);
         }
       }
 
-      const h2 = document.createElement('div');
-      h2.style.color = 'var(--muted)';
-      h2.style.fontSize = '12px';
-      h2.style.fontWeight = '700';
-      h2.style.marginTop = '14px';
-      h2.textContent = 'Outgoing requests';
+      const h2 = el("div", {});
+      h2.style.color = "var(--muted)";
+      h2.style.fontSize = "12px";
+      h2.style.fontWeight = "800";
+      h2.style.marginTop = "14px";
+      h2.textContent = "Outgoing requests";
       section.appendChild(h2);
 
       if (!outgoing || outgoing.length === 0) {
-        const none2 = document.createElement('div');
-        none2.style.color = 'var(--muted)';
-        none2.style.fontSize = '13px';
-        none2.textContent = 'No outgoing requests.';
+        const none2 = el("div", {});
+        none2.style.color = "var(--muted)";
+        none2.style.fontSize = "13px";
+        none2.textContent = "No outgoing requests.";
         section.appendChild(none2);
       } else {
         for (const r of outgoing) {
-          const p = byId[r.to_user_id] || { username: 'User', status: 'offline' };
-          const row = document.createElement('div');
-          row.className = 'friend-row';
-          row.style.cursor = 'default';
+          const p = byId[r.to_user_id] || { username: "User", status: "offline" };
+          const row = el("div", { class: "friend-row" });
+          row.style.cursor = "default";
 
-          const ava = document.createElement('div');
-          ava.className = 'friend-ava';
-          if (p.avatar_url) ava.style.backgroundImage = `url('${p.avatar_url}')`;
+          const ava = el("div", { class: "friend-ava" });
+          if (p.avatar_url) ava.style.backgroundImage = "url('" + p.avatar_url + "')";
           ava.onclick = () => openProfile(r.to_user_id);
 
-          const meta = document.createElement('div');
-          meta.className = 'friend-meta';
-          meta.innerHTML = `<div class="friend-name">${escHtml(p.username)}</div><div class="friend-sub">Pending</div>`;
+          const meta = el("div", { class: "friend-meta" });
+          meta.appendChild(el("div", { class: "friend-name", text: p.username || "User" }));
+          meta.appendChild(el("div", { class: "friend-sub", text: "Pending" }));
 
-          const actions = document.createElement('div');
-          actions.className = 'friend-actions';
-
-          const pBtn = document.createElement('button');
-          pBtn.className = 'mini-btn';
-          pBtn.textContent = 'Pending';
+          const actions = el("div", { class: "friend-actions" });
+          const pBtn = el("button", { class: "mini-btn", text: "Pending" });
           pBtn.disabled = true;
-          pBtn.style.opacity = '0.7';
-
+          pBtn.style.opacity = "0.7";
           actions.appendChild(pBtn);
 
           row.appendChild(ava);
           row.appendChild(meta);
           row.appendChild(actions);
-
           section.appendChild(row);
         }
       }
@@ -861,140 +1987,26 @@
       wrap.appendChild(section);
     }
 
-    // ---------- FRIEND REQUESTS ----------
-    async function submitAddFriend() {
-      await waitForSb();
-      const unameRaw = document.getElementById('friend-username').value.trim();
-      if (!unameRaw) return alert("Enter a username.");
-
-      const { data: target, error: e1 } = await window._sb
-        .from('profiles')
-        .select('id, username')
-        .eq('username', unameRaw)
-        .maybeSingle();
-
-      if (e1) { console.error(e1); return alert("Error searching user."); }
-      if (!target) return alert("User not found.");
-      if (target.id === user.id) return alert("You can’t add yourself.");
-
-      // Dedupe: check existing in either direction
-      const { data: existing, error: e2 } = await window._sb
-        .from('friend_requests')
-        .select('id, status, from_user_id, to_user_id')
-        .or(`and(from_user_id.eq.${user.id},to_user_id.eq.${target.id}),and(from_user_id.eq.${target.id},to_user_id.eq.${user.id})`);
-
-      if (e2) console.error(e2);
-
-      const existingList = existing || [];
-      const alreadyAccepted = existingList.some(r => r.status === 'accepted');
-      const alreadyPending = existingList.some(r => r.status === 'pending');
-
-      if (alreadyAccepted) return alert("You’re already friends.");
-      if (alreadyPending) {
-        const incoming = existingList.find(r => r.status === 'pending' && r.to_user_id === user.id);
-        if (incoming) return alert("They already sent you a request. Check Pending.");
-        return alert("Friend request already sent.");
-      }
-
-      const { error: e4 } = await window._sb
-        .from('friend_requests')
-        .insert([{ from_user_id: user.id, to_user_id: target.id, status: 'pending' }]);
-
-      if (e4) return alert(e4.message);
-
-      alert("Request sent!");
-      document.getElementById('add-friend-modal').style.display='none';
-      document.getElementById('friend-username').value = '';
-
-      if (activeView === 'dm' && activeId === null) renderFriendsPanel();
-    }
-
-    async function loadPendingRequests() {
-      await waitForSb();
-      const msgs = document.getElementById('msgs');
-
-      const { data: reqs, error } = await window._sb
-        .from('friend_requests')
-        .select('id, from_user_id, to_user_id, status')
-        .eq('to_user_id', user.id)
-        .eq('status', 'pending');
-
-      if (error) {
-        console.error(error);
-        msgs.innerHTML = '<div style="padding:40px; text-align:center;">Error loading requests.</div>';
-        return;
-      }
-
-      if(!reqs || reqs.length === 0) {
-        msgs.innerHTML = '<div style="padding:40px; text-align:center;">No requests.</div>';
-        return;
-      }
-
-      const fromIds = reqs.map(r => r.from_user_id);
-      const { data: profs, error: e2 } = await window._sb.from('profiles').select('id, username').in('id', fromIds);
-      if (e2) console.error(e2);
-      const byId = Object.fromEntries((profs || []).map(p => [p.id, p]));
-
-      msgs.innerHTML = reqs.map(r => {
-        const u = byId[r.from_user_id];
-        const uname = u?.username || 'User';
-        return `
-          <div class="msg" style="background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; align-items:center;">
-            <div class="msg-user" style="flex:1">${escHtml(uname)} wants to be friends.</div>
-            <button onclick="respondFriend('${r.id}', 'accepted')" class="btn-brand" style="width:auto; padding:8px 20px; margin-right:5px;">Accept</button>
-            <button onclick="respondFriend('${r.id}', 'declined')" class="btn-brand btn-danger" style="width:auto; padding:8px 20px;">Decline</button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function respondFriend(rid, status) {
-      await waitForSb();
-
-      const { data: req, error: e1 } = await window._sb
-        .from('friend_requests')
-        .update({ status })
-        .eq('id', rid)
-        .select('from_user_id, to_user_id, status')
-        .maybeSingle();
-
-      if (e1) { console.error(e1); alert(e1.message); return; }
-
-      // If accepted, try ensure dm thread exists (requires dm_threads table)
-      if (status === 'accepted' && req) {
-        const a = req.from_user_id;
-        const b = req.to_user_id;
-        const user1 = a < b ? a : b;
-        const user2 = a < b ? b : a;
-
-        const { error: e2 } = await window._sb.from('dm_threads').insert([{ user1, user2 }]);
-        if (e2) console.error(e2);
-      }
-
-      if (activeView === 'dm' && activeId === null) renderFriendsPanel();
-      if (activeView === 'pending') loadPendingRequests();
-    }
-
-    // ---------- FRIENDS LIST (DEDUPED) ----------
     async function loadFriendsListDeduped() {
       await waitForSb();
 
       const { data, error } = await window._sb
-        .from('friend_requests')
-        .select('id, from_user_id, to_user_id, status')
-        .eq('status', 'accepted');
+        .from("friend_requests")
+        .select("id, from_user_id, to_user_id, status")
+        .eq("status", "accepted");
 
       if (error) { console.error(error); return []; }
 
-      const rel = (data || []).filter(r => r.from_user_id === user.id || r.to_user_id === user.id);
+      const rel = (data || []).filter((r) => r.from_user_id === user.id || r.to_user_id === user.id);
 
       const seenPair = new Set();
       const friendIds = [];
+
       for (const r of rel) {
-        const other = (r.from_user_id === user.id) ? r.to_user_id : r.from_user_id;
+        const other = r.from_user_id === user.id ? r.to_user_id : r.from_user_id;
         const a = user.id < other ? user.id : other;
         const b = user.id < other ? other : user.id;
-        const key = `${a}:${b}`;
+        const key = a + ":" + b;
         if (seenPair.has(key)) continue;
         seenPair.add(key);
         friendIds.push(other);
@@ -1003,24 +2015,175 @@
       if (friendIds.length === 0) return [];
 
       const { data: profs, error: e2 } = await window._sb
-        .from('profiles')
-        .select('id, username, avatar_url, status')
-        .in('id', friendIds);
+        .from("profiles")
+        .select("id, username, avatar_url, status, last_seen")
+        .in("id", friendIds);
 
       if (e2) { console.error(e2); return []; }
 
-      const byId = Object.fromEntries((profs || []).map(p => [p.id, p]));
+      const byId = Object.fromEntries((profs || []).map((p) => [p.id, p]));
       const out = [];
       const seen = new Set();
+
       for (const id of friendIds) {
         if (seen.has(id)) continue;
         seen.add(id);
         if (byId[id]) out.push(byId[id]);
       }
+
       return out;
     }
 
-    // ---------- DMs ----------
+    /* ========= DM THREADS LIST (CONVERSATIONS PANE) ========= */
+    async function refreshDmListOrdering(force) {
+      const now = Date.now();
+      if (!force && now - __lastDmRefreshAt < 1500) return;
+      __lastDmRefreshAt = now;
+
+      const sc = document.getElementById("side-content");
+      if (!sc) return;
+      const holder = sc.querySelector('[data-dm-convos="1"]');
+      if (!holder) return;
+
+      await loadDmThreadsPanel(holder);
+
+      if (activeView === "dm" && activeId) markActiveDmInSidebar(activeId);
+    }
+
+    function markActiveDmInSidebar(dmId) {
+      document.querySelectorAll('[data-dm-row="1"]').forEach(r => {
+        const rid = r.getAttribute("data-dm-id");
+        r.classList.toggle("active", String(rid) === String(dmId));
+      });
+    }
+
+    async function loadDmThreadsPanel(container) {
+      await waitForSb();
+
+      // only render in DM nav
+      const { data: threads, error: e1 } = await window._sb
+        .from("dm_threads")
+        .select("id, user1, user2")
+        .or("user1.eq." + user.id + ",user2.eq." + user.id);
+
+      if (e1) { console.error(e1); return; }
+
+      const list = threads || [];
+      if (!list.length) {
+        const sig = "empty";
+        // ✅ FIX: if container is new/empty, render even if sig matches
+        if (sig === __dmListSig && container.innerHTML.trim().length > 0) return;
+        __dmListSig = sig;
+        container.innerHTML = '<div style="padding:10px 16px;color:var(--muted);font-size:12px">No conversations yet.</div>';
+        return;
+      }
+
+      const dmIds = list.map(t => t.id);
+
+      // latest messages for each dm
+      const { data: msgs, error: e2 } = await window._sb
+        .from("messages")
+        .select("id, dm_id, user_id, content, created_at")
+        .in("dm_id", dmIds)
+        .order("created_at", { ascending: false });
+
+      if (e2) console.error(e2);
+
+      const latestByDm = {};
+      (msgs || []).forEach(m => {
+        if (!latestByDm[m.dm_id]) latestByDm[m.dm_id] = m;
+      });
+
+      const otherIds = list.map(t => (t.user1 === user.id ? t.user2 : t.user1));
+      const uniqOther = Array.from(new Set(otherIds));
+
+      const { data: profs, error: e3 } = await window._sb
+        .from("profiles")
+        .select("id, username, avatar_url, status, last_seen")
+        .in("id", uniqOther);
+
+      if (e3) console.error(e3);
+
+      const profById = Object.fromEntries((profs || []).map(p => [p.id, p]));
+
+      // sort by latest message time desc; if no messages, put at bottom
+      const sorted = list.slice().sort((a, b) => {
+        const la = latestByDm[a.id]?.created_at ? new Date(latestByDm[a.id].created_at).getTime() : 0;
+        const lb = latestByDm[b.id]?.created_at ? new Date(latestByDm[b.id].created_at).getTime() : 0;
+        return lb - la;
+      });
+
+      // signature to prevent flashing
+      const sigObj = sorted.map(t => {
+        const other = (t.user1 === user.id ? t.user2 : t.user1);
+        const p = profById[other] || {};
+        const last = latestByDm[t.id]?.created_at || "";
+        const snip = String(latestByDm[t.id]?.content || "").slice(0, 50);
+        return [t.id, other, p.username || "", p.avatar_url || "", last, snip];
+      });
+      const sig = JSON.stringify(sigObj);
+
+      // ✅ FIX: if container is new/empty, render even if sig matches
+      if (sig === __dmListSig && container.innerHTML.trim().length > 0) return;
+      __dmListSig = sig;
+
+      // render
+      container.innerHTML = "";
+      for (const t of sorted) {
+        const other = (t.user1 === user.id ? t.user2 : t.user1);
+        const p = profById[other] || { username: "User", avatar_url: null };
+        const last = latestByDm[t.id];
+        const row = el("div", { class: "dm-row", });
+        row.setAttribute("data-dm-row", "1");
+        row.setAttribute("data-dm-id", String(t.id));
+
+        const ava = el("div", { class: "dm-ava" });
+        if (p.avatar_url) ava.style.backgroundImage = "url('" + p.avatar_url + "')";
+
+        const dot = el("div", { class: "status-dot" });
+        dot.style.borderColor = "var(--side)";
+        dot.style.width = "10px";
+        dot.style.height = "10px";
+        dot.style.borderWidth = "3px";
+        dot.style.right = "-2px";
+        dot.style.bottom = "-2px";
+        dot.style.background = statusColor(computeLiveStatus(p));
+        ava.appendChild(dot);
+
+        const meta = el("div", { class: "dm-meta" });
+        meta.appendChild(el("div", { class: "dm-name", text: p.username || "User" }));
+        meta.appendChild(el("div", { class: "dm-sub", text: last ? (isImageUrl(last.content) ? "[image]" : String(last.content || "")) : "No messages yet" }));
+
+        const time = el("div", { class: "dm-time", text: last ? safeDayTime(last.created_at) : "" });
+
+        row.appendChild(ava);
+        row.appendChild(meta);
+        row.appendChild(time);
+
+        row.onclick = () => openDmThreadById(t.id, other, p.username);
+
+        container.appendChild(row);
+      }
+
+      markActiveDmInSidebar(activeId);
+    }
+
+    async function openDmThreadById(threadId, otherId, otherName) {
+      activeView = "dm";
+      activeId = threadId;
+      document.getElementById("chat-header-text").innerText = otherName || "DM";
+      document.getElementById("chat-input-area").style.display = "block";
+
+      updateMembersVisibilityAndContent();
+      markActiveDmInSidebar(threadId);
+
+      __forceScrollBottomOnce = true;
+      await loadMessages(true);
+      subscribeTyping();
+      startPolling();
+    }
+
+    /* ========= DM ========= */
     async function openDmWith(friendId, friendUsername) {
       await waitForSb();
 
@@ -1030,130 +2193,278 @@
       const user2 = a < b ? b : a;
 
       let thread = null;
+
       const { data: found, error: e1 } = await window._sb
-        .from('dm_threads')
-        .select('id')
-        .eq('user1', user1)
-        .eq('user2', user2)
+        .from("dm_threads")
+        .select("id")
+        .eq("user1", user1)
+        .eq("user2", user2)
         .maybeSingle();
 
       if (e1) console.error(e1);
       thread = found;
 
       if (!thread) {
-        const { error: e2 } = await window._sb.from('dm_threads').insert([{ user1, user2 }]);
+        const { error: e2 } = await window._sb.from("dm_threads").insert([{ user1: user1, user2: user2 }]);
         if (e2) { console.error(e2); alert("DM threads not set up (need dm_threads + messages.dm_id)."); return; }
 
         const { data: found2, error: e3 } = await window._sb
-          .from('dm_threads')
-          .select('id')
-          .eq('user1', user1)
-          .eq('user2', user2)
+          .from("dm_threads")
+          .select("id")
+          .eq("user1", user1)
+          .eq("user2", user2)
           .maybeSingle();
 
         if (e3) { console.error(e3); alert("Could not open DM."); return; }
         thread = found2;
       }
 
-      activeView = 'dm';
-      activeId = thread.id;
-      document.getElementById('chat-header-text').innerText = friendUsername || "DM";
-      document.getElementById('chat-input-area').style.display = 'block';
-
-      // members panel empty in DM
-      document.getElementById('member-list').innerHTML = '';
-
-      loadMessages();
-      startPolling();
+      await refreshDmListOrdering(true);
+      openDmThreadById(thread.id, friendId, friendUsername);
     }
 
-    // ---------- MESSAGES ----------
-    async function loadMessages() {
+    /* ========= LOAD MESSAGES (uses current profile avatars; preserves scroll) ========= */
+    async function loadMessages(forceScrollBottom) {
       await waitForSb();
 
-      if (activeView === 'pending') return;
+      if (activeView === "pending") return;
 
-      if (activeView === 'dm' && activeId === null) {
+      if (activeView === "dm" && activeId === null) {
         renderFriendsPanel();
         return;
       }
 
       let q = window._sb
-        .from('messages')
-        .select('*, reply_msg:reply_id(username, content)')
-        .order('created_at', { ascending: true });
+        .from("messages")
+        .select("id, user_id, content, created_at, reply_id, is_edited, dm_id, channel_id, note_user_id, reply_msg:reply_id(user_id, content)")
+        .order("created_at", { ascending: true });
 
-      if (activeView === 'dm') q = q.eq('dm_id', activeId);
-      else if (activeView === 'notes') q = q.eq('note_user_id', user.id);
-      else if (activeView === 'chan') q = q.eq('channel_id', activeId);
-      else q = q.is('channel_id', null).is('note_user_id', null);
+      if (activeView === "dm") q = q.eq("dm_id", activeId);
+      else if (activeView === "notes") q = q.eq("note_user_id", user.id);
+      else if (activeView === "chan") q = q.eq("channel_id", activeId);
+      else q = q.is("channel_id", null).is("note_user_id", null);
 
       const { data, error } = await q;
 
-      if (error) {
-        console.error(error);
-        renderPlaceholder("Error loading messages.");
-        return;
+      if (error) { console.error(error); renderPlaceholder("Error loading messages."); return; }
+
+      const filtered = (data || []).filter((m) => String(m.content || "").toLowerCase().includes(searchTerm));
+      const ids = filtered.map(m => m.id);
+
+      // gather profiles for all message users + reply users
+      const userIds = new Set(filtered.map(m => m.user_id));
+      for (const m of filtered) {
+        if (m.reply_msg && m.reply_msg.user_id) userIds.add(m.reply_msg.user_id);
+      }
+      const uniq = Array.from(userIds);
+      let profById = {};
+      if (uniq.length) {
+        const { data: profs, error: e2 } = await window._sb
+          .from("profiles")
+          .select("id, username, avatar_url, status, last_seen")
+          .in("id", uniq);
+        if (e2) console.error(e2);
+        profById = Object.fromEntries((profs || []).map(p => [p.id, p]));
       }
 
-      const filtered = (data || []).filter(m => String(m.content || "").toLowerCase().includes(searchTerm));
-      renderMessages(filtered);
+      await loadReactionsForMessages(ids);
+
+      renderMessages(filtered, profById, !!forceScrollBottom || __forceScrollBottomOnce);
+      __forceScrollBottomOnce = false;
+
+      // update DM list ordering after messages load
+      if (activeView === "dm") refreshDmListOrdering(true);
     }
 
+    function isNearBottom(scroller) {
+      const slack = 140;
+      return (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight) < slack;
+    }
+
+    /* ========= MESSAGES RENDER ========= */
+    function renderMessages(list, profById, forceBottom) {
+      const wrap = document.getElementById("msgs");
+      const stick = forceBottom || isNearBottom(wrap);
+
+      // build signature so we can skip DOM rebuild if unchanged (reduces flashing)
+      const sig = JSON.stringify(list.map(m => [m.id, m.content, m.is_edited, m.created_at]));
+      if (sig === __lastRenderedSig && !forceBottom) {
+        // still ensure reactions update; easiest is to continue
+      } else {
+        __lastRenderedSig = sig;
+      }
+
+      clear(wrap);
+
+      for (const m of list) {
+        const p = profById && profById[m.user_id] ? profById[m.user_id] : { username: "User", avatar_url: null };
+
+        const row = el("div", {
+          class: "msg",
+          oncontextmenu: function (e) {
+            showMsgMenu(e, m.id, m.user_id, m.content, p.username || "User");
+          }
+        });
+
+        // hover actions (reaction + menu)
+        const actions = el("div", { class: "msg-actions" });
+        const reactBtn = el("div", { class: "act-btn", text: "😀", title: "React" });
+        reactBtn.onclick = (e) => { e.stopPropagation(); openEmojiPickerForReaction(m.id); };
+
+        const moreBtn = el("div", { class: "act-btn", text: "⋯", title: "More" });
+        moreBtn.onclick = (e) => {
+          e.stopPropagation();
+          // open msg menu near button
+          const rect = moreBtn.getBoundingClientRect();
+          showMsgMenu({ preventDefault(){}, clientX: rect.left, clientY: rect.bottom, stopPropagation(){}, }, m.id, m.user_id, m.content, p.username || "User");
+        };
+
+        actions.appendChild(reactBtn);
+        actions.appendChild(moreBtn);
+        row.appendChild(actions);
+
+        const avatar = el("div", { class: "msg-img" });
+        if (p.avatar_url) avatar.style.backgroundImage = "url('" + p.avatar_url + "')";
+        avatar.onclick = function () { openProfile(m.user_id); };
+
+        const content = el("div", { class: "msg-content" });
+
+        if (m.reply_msg) {
+          const rp = (profById && profById[m.reply_msg.user_id]) ? profById[m.reply_msg.user_id] : { username: "User" };
+          content.appendChild(
+            el("div", {
+              class: "reply-ref",
+              text:
+                "↳ " +
+                (rp.username || "User") +
+                ": " +
+                String(m.reply_msg.content || "").substring(0, 30) +
+                (String(m.reply_msg.content || "").length > 30 ? "..." : "")
+            })
+          );
+        }
+
+        const header = el("div", { class: "msg-user" });
+        header.innerHTML =
+          escHtml(p.username || "User") + ' <span class="msg-time">' + escHtml(safeTime(m.created_at)) + "</span>";
+
+        if (m.is_edited) {
+          header.appendChild(el("span", { class: "tag-edited", text: "(edited)" }));
+        }
+        content.appendChild(header);
+
+        const text = el("div", { });
+        text.id = "text-" + m.id;
+        text.style.color = "var(--text)";
+        text.style.whiteSpace = "pre-wrap";
+        text.style.userSelect = "text";
+
+        if (isImageUrl(m.content)) {
+          const img = el("img", {});
+          img.src = m.content;
+          img.style.maxWidth = "300px";
+          img.style.borderRadius = "8px";
+          img.style.display = "block";
+          text.appendChild(img);
+        } else {
+          text.textContent = m.content || "";
+        }
+
+        content.appendChild(text);
+
+        const rRow = el("div", { class: "reactions-row" });
+
+        const reactions = reactionMap[m.id] || {};
+        for (const [emoji, info] of Object.entries(reactions)) {
+          const pill = el("div", {
+            class: "reaction-pill" + (info.me ? " me" : ""),
+            text: emoji + " " + info.count,
+            onclick: () => toggleReaction(m.id, emoji)
+          });
+          rRow.appendChild(pill);
+        }
+
+        content.appendChild(rRow);
+
+        row.appendChild(avatar);
+        row.appendChild(content);
+        wrap.appendChild(row);
+      }
+
+      if (stick) wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    /* ========= SEND ========= */
     async function send() {
       await waitForSb();
-      const inp = document.getElementById('mIn');
-      if(!inp.value.trim()) return;
+
+      const inp = document.getElementById("mIn");
+      if (!inp.value.trim()) return;
+
+      // fetch current profile avatar at send time (NOT from messages table)
+      const { data: myp } = await window._sb
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (myp) {
+        profile.username = myp.username || profile.username;
+        profile.avatar_url = myp.avatar_url || profile.avatar_url;
+      }
 
       const p = {
         user_id: user.id,
-        username: profile.username,
         content: inp.value,
-        avatar_url: profile.avatar_url,
         reply_id: replyId
       };
 
-      if (activeView === 'notes') p.note_user_id = user.id;
-      else if (activeView === 'chan') p.channel_id = activeId;
-      else if (activeView === 'dm') p.dm_id = activeId;
+      if (activeView === "notes") p.note_user_id = user.id;
+      else if (activeView === "chan") p.channel_id = activeId;
+      else if (activeView === "dm") p.dm_id = activeId;
 
-      const { error } = await window._sb.from('messages').insert([p]);
+      const { error } = await window._sb.from("messages").insert([p]);
       if (error) { console.error(error); alert(error.message); return; }
 
-      inp.value = '';
+      inp.value = "";
       cancelReply();
-      loadMessages();
+      await deleteMyTyping();
+      __forceScrollBottomOnce = true;
+      loadMessages(true);
+      refreshDmListOrdering(true);
     }
 
     async function uploadImage(inp) {
       await waitForSb();
-      const file = inp.files[0];
-      if(!file) return;
+      const file = inp.files && inp.files[0];
+      if (!file) return;
 
-      const path = `chat-images/${Date.now()}-${file.name}`;
-      const { error: upErr } = await window._sb.storage.from('images').upload(path, file);
+      const path = "chat-images/" + Date.now() + "-" + file.name;
+      const { error: upErr } = await window._sb.storage.from("images").upload(path, file);
       if (upErr) { console.error(upErr); alert(upErr.message); return; }
 
-      const { data } = window._sb.storage.from('images').getPublicUrl(path);
-      document.getElementById('mIn').value = data.publicUrl;
+      const { data } = window._sb.storage.from("images").getPublicUrl(path);
+      document.getElementById("mIn").value = data.publicUrl;
       send();
       inp.value = "";
     }
 
+    /* ========= CONTEXT MENU ========= */
     function showMsgMenu(e, id, uid, text, userName) {
-      e.preventDefault();
-      selectedMsg = { id, text, user: userName, uid };
+      if (e && e.preventDefault) e.preventDefault();
+      selectedMsg = { id: id, text: text, user: userName, uid: uid };
 
-      const m = document.getElementById('msg-menu');
+      const m = document.getElementById("msg-menu");
+      const canEdit = uid === user.id;
 
-      // ✅ use auth user.id (not profile.id) so edit always works correctly
-      const canEdit = (uid === user.id);
-      m.querySelector('[onclick="startEdit()"]').style.display = canEdit ? 'block' : 'none';
-      m.querySelector('[onclick="deleteCurrentMsg()"]').style.display = canEdit ? 'block' : 'none';
+      const editItem = m.querySelector('[onclick="startEdit()"]');
+      const delItem = m.querySelector('[onclick="deleteCurrentMsg()"]');
 
-      m.style.display = 'block';
-      m.style.top = e.clientY + 'px';
-      m.style.left = e.clientX + 'px';
+      if (editItem) editItem.style.display = canEdit ? "block" : "none";
+      if (delItem) delItem.style.display = canEdit ? "block" : "none";
+
+      m.style.display = "block";
+      clampMenuToViewport(m, e.clientX || 10, e.clientY || 10);
     }
 
     async function startEdit() {
@@ -1161,132 +2472,230 @@
       stopPolling();
       hideAllPopups();
 
-      const div = document.getElementById(`text-${selectedMsg.id}`);
+      const div = document.getElementById("text-" + selectedMsg.id);
       if (!div) return;
 
-      div.innerHTML = '';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.id = 'edit-inp';
-      input.style.width = '100%';
-      input.style.background = '#222';
-      input.style.color = 'white';
-      input.style.border = '1px solid var(--brand)';
-      input.style.padding = '8px';
-      input.style.borderRadius = '4px';
-      input.value = selectedMsg.text || '';
+      div.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = "edit-inp";
+      input.style.width = "100%";
+      input.style.background = "#222";
+      input.style.color = "#fff";
+      input.style.border = "1px solid var(--brand)";
+      input.style.padding = "8px";
+      input.style.borderRadius = "4px";
+      input.value = selectedMsg.text || "";
       div.appendChild(input);
 
       input.focus();
       input.onkeydown = async (ev) => {
-        if (ev.key === 'Enter') {
-          const { error } = await window._sb.from('messages').update({ content: input.value }).eq('id', selectedMsg.id);
+        if (ev.key === "Enter") {
+          const { error } = await window._sb.from("messages").update({ content: input.value, is_edited: true }).eq("id", selectedMsg.id);
           if (error) { console.error(error); alert(error.message); return; }
           isEditing = false;
           startPolling();
-          loadMessages();
+          loadMessages(false);
+          refreshDmListOrdering(true);
         }
-        if (ev.key === 'Escape') {
+        if (ev.key === "Escape") {
           isEditing = false;
           startPolling();
-          loadMessages();
+          loadMessages(false);
         }
       };
     }
 
+    async function viewEditHistory() {
+      await waitForSb();
+      hideAllPopups();
+
+      const mid = selectedMsg && selectedMsg.id;
+      if (!mid) return;
+
+      const { data, error } = await window._sb
+        .from("message_edits")
+        .select("edited_at, old_content, editor_id")
+        .eq("message_id", mid)
+        .order("edited_at", { ascending: false });
+
+      if (error) { console.error(error); return alert(error.message); }
+
+      const body = document.getElementById("edit-history-body");
+      if (!data || data.length === 0) {
+        body.innerHTML = '<div style="color:var(--muted);padding:10px">No edits for this message.</div>';
+      } else {
+        body.innerHTML = data.map(e => {
+          return (
+            '<div style="padding:10px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;background:rgba(0,0,0,0.06);margin-bottom:10px">' +
+            '<div style="color:var(--muted);font-size:12px;margin-bottom:6px">Edited at ' + escHtml(safeTime(e.edited_at)) + '</div>' +
+            '<div style="white-space:pre-wrap;color:var(--text)">' + escHtml(e.old_content) + "</div>" +
+            "</div>"
+          );
+        }).join("");
+      }
+
+      document.getElementById("edit-history-modal").style.display = "flex";
+    }
+
     async function deleteCurrentMsg() {
       await waitForSb();
-      const { error } = await window._sb.from('messages').delete().eq('id', selectedMsg.id);
+      const { error } = await window._sb.from("messages").delete().eq("id", selectedMsg.id);
       if (error) { console.error(error); alert(error.message); return; }
-      loadMessages();
+      loadMessages(false);
       hideAllPopups();
+      refreshDmListOrdering(true);
     }
 
     function startReply() {
       replyId = selectedMsg.id;
-      document.getElementById('reply-user').innerText = selectedMsg.user || '';
-      document.getElementById('reply-text').innerText = selectedMsg.text || '';
-      document.getElementById('reply-preview').style.display = 'block';
+      document.getElementById("reply-user").innerText = selectedMsg.user || "";
+      document.getElementById("reply-text").innerText = selectedMsg.text || "";
+      document.getElementById("reply-preview").style.display = "block";
       hideAllPopups();
+      document.getElementById("mIn").focus();
     }
 
     function cancelReply() {
       replyId = null;
-      document.getElementById('reply-preview').style.display = 'none';
+      document.getElementById("reply-preview").style.display = "none";
     }
 
     function copyMsgText() {
-      navigator.clipboard.writeText(selectedMsg.text || '');
+      navigator.clipboard.writeText(selectedMsg.text || "");
       hideAllPopups();
     }
 
-    // ---------- SERVERS / CHANNELS ----------
+    /* ========= SERVERS / CHANNELS (DOM-built; no string quoting) ========= */
     async function loadServers() {
       await waitForSb();
-      const { data, error } = await window._sb.from('server_members').select('servers(*)').eq('user_id', user.id);
+
+      const { data, error } = await window._sb.from("server_members").select("servers(*)").eq("user_id", user.id);
       if (error) console.error(error);
 
-      document.getElementById('server-rail').innerHTML = (data || [])
-        .filter(r => r.servers)
-        .map(r => `
-          <div class="icon"
-               data-sid="${r.servers.id}"
-               oncontextmenu="showServerRailMenu(event, ${r.servers.id})"
-               onclick="switchView('server', ${r.servers.id}, '${String(r.servers.name || '').replace(/'/g, "\\'")}')">${escHtml((r.servers.name || 'S')[0])}</div>
-        `).join('');
+      const rail = document.getElementById("server-rail");
+      clear(rail);
+
+      (data || []).filter(r => r.servers).forEach(r => {
+        const srv = r.servers;
+        const n = String(srv.name || "S");
+
+        const ic = el("div", { class: "icon", text: n[0] });
+        ic.setAttribute("data-sid", String(srv.id));
+        ic.oncontextmenu = (e) => showServerRailMenu(e, srv.id);
+        ic.onclick = () => switchView("server", srv.id, srv.name);
+
+        rail.appendChild(ic);
+      });
     }
 
     async function showServerRailMenu(e, sid) {
       e.preventDefault();
       currentServerId = sid;
 
-      // fetch server to know owner (controls settings access)
-      const { data: srv, error } = await window._sb.from('servers').select('id, owner_id, name').eq('id', sid).maybeSingle();
+      const { data: srv, error } = await window._sb.from("servers").select("id, owner_id, name").eq("id", sid).maybeSingle();
       if (error) console.error(error);
-      currentServerOwnerId = srv?.owner_id || null;
+      currentServerOwnerId = (srv && srv.owner_id) || null;
+      currentServerName = (srv && srv.name) || "Server";
 
-      const isOwner = (currentServerOwnerId === user.id);
+      const isOwner = currentServerOwnerId === user.id;
 
-      document.getElementById('server-settings-item').style.display = isOwner ? 'block' : 'none';
-      document.getElementById('server-delete-item').style.display = isOwner ? 'block' : 'none';
+      document.getElementById("server-settings-item").style.display = isOwner ? "block" : "none";
+      document.getElementById("server-delete-item").style.display = isOwner ? "block" : "none";
 
-      const m = document.getElementById('server-rail-menu');
-      m.style.display='block';
-      m.style.top=e.clientY+'px';
-      m.style.left=e.clientX+'px';
+      const m = document.getElementById("server-rail-menu");
+      m.style.display = "block";
+      clampMenuToViewport(m, e.clientX, e.clientY);
     }
 
     function openServerSettings() {
       hideAllPopups();
-      document.getElementById('server-settings-modal').style.display='flex';
+      document.getElementById("server-settings-modal").style.display = "flex";
+      document.getElementById("edit-server-name").focus();
     }
 
     async function deleteServer() {
       await waitForSb();
-      if(!confirm("Delete this server?")) return;
+      if (!confirm("Delete this server?")) return;
 
-      // only owner should reach here (menu hidden otherwise), but still safe
       if (currentServerOwnerId !== user.id) return alert("Only the server owner can delete this server.");
 
-      const { error } = await window._sb.from('servers').delete().eq('id', currentServerId);
+      const { error } = await window._sb.from("servers").delete().eq("id", currentServerId);
       if (error) { console.error(error); alert(error.message); return; }
 
       await loadServers();
-      switchView('dm');
+      switchView("dm");
     }
+
+    function openPlusMenu(e) {
+      if (e) e.stopPropagation();
+      document.getElementById("plus-choice-modal").style.display = "flex";
+    }
+
+    function openCreateServer() {
+      document.getElementById("plus-choice-modal").style.display = "none";
+      document.getElementById("plus-modal").style.display = "flex";
+      setTimeout(() => document.getElementById("new-server-name").focus(), 0);
+    }
+
+    function openJoinServer() {
+      document.getElementById("plus-choice-modal").style.display = "none";
+      document.getElementById("join-server-modal").style.display = "flex";
+      setTimeout(() => document.getElementById("join-server-id").focus(), 0);
+    }
+
+async function submitJoinServer() {
+  await waitForSb();
+
+  const raw = document.getElementById("join-server-id").value.trim();
+  if (!raw) return alert("Paste a server ID.");
+
+  // int8/bigint: keep as STRING (safe), but validate it's digits
+  if (!/^\d+$/.test(raw)) return alert("Server ID must be digits (int8).");
+
+  // 1) Try to join FIRST (no need to read servers table yet)
+  const { error: joinErr } = await window._sb
+    .from("server_members")
+    .insert([{ server_id: raw, user_id: user.id }]);
+
+  if (joinErr) {
+    const msg = String(joinErr.message || "").toLowerCase();
+
+    // already a member
+    if (msg.includes("duplicate") || msg.includes("unique")) {
+      // continue to open server below
+    } else if (msg.includes("foreign key") || msg.includes("violates foreign key")) {
+      return alert("Server not found (no server with that ID).");
+    } else {
+      console.error(joinErr);
+      return alert(joinErr.message);
+    }
+  }
+
+  // 2) Now that you're a member, SELECT will pass RLS
+  const { data: srv, error: e1 } = await window._sb
+    .from("servers")
+    .select("id, name")
+    .eq("id", raw)
+    .maybeSingle();
+
+  if (e1) { console.error(e1); return alert(e1.message); }
+  if (!srv) return alert("Joined, but couldn't load server details. Refresh the page.");
+
+  document.getElementById("join-server-modal").style.display = "none";
+  document.getElementById("join-server-id").value = "";
+
+  await loadServers();
+  switchView("server", srv.id, srv.name);
+}
 
     async function submitCreateServer() {
       await waitForSb();
       const name = document.getElementById("new-server-name").value.trim();
       if (!name) return alert("Enter a server name.");
 
-      const { data: srv, error: e1 } = await window._sb
-        .from("servers")
-        .insert([{ name, owner_id: user.id }])
-        .select("*")
-        .maybeSingle();
-
-      if (e1 || !srv) { console.error(e1); return alert(e1?.message || "Error creating server."); }
+      const { data: srv, error: e1 } = await window._sb.from("servers").insert([{ name: name, owner_id: user.id }]).select("*").maybeSingle();
+      if (e1 || !srv) { console.error(e1); return alert((e1 && e1.message) || "Error creating server."); }
 
       const { error: e2 } = await window._sb.from("server_members").insert([{ server_id: srv.id, user_id: user.id }]);
       if (e2) { console.error(e2); alert(e2.message); }
@@ -1303,50 +2712,54 @@
 
     async function loadChannels(serverId, serverName) {
       await waitForSb();
-      document.getElementById('side-title').innerText = serverName || "Server";
-      document.getElementById('chat-header-text').innerText = serverName || "Server";
+      document.getElementById("side-title").innerText = serverName || "Server";
+      document.getElementById("chat-header-text").innerText = serverName || "Server";
 
-      // ✅ Load members list for this server
+      updateMembersVisibilityAndContent();
       loadServerMembers(serverId);
 
-      const { data, error } = await window._sb
-        .from("channels")
-        .select("*")
-        .eq("server_id", serverId)
-        .order("id", { ascending: true });
+      const { data, error } = await window._sb.from("channels").select("*").eq("server_id", serverId).order("id", { ascending: true });
 
       if (error) {
         console.error(error);
-        document.getElementById("side-content").innerHTML = `<div style="padding:16px; color:var(--muted);">Error loading channels.</div>`;
+        document.getElementById("side-content").innerHTML = '<div style="padding:16px;color:var(--muted)">Error loading channels.</div>';
         return;
       }
 
       const sc = document.getElementById("side-content");
-      sc.innerHTML = `
-        <div class="category">Channels</div>
-        ${(data || []).map(ch => `
-          <div class="item" onclick="openChannel(${ch.id}, '${String(ch.name || '').replace(/'/g, "\\'")}')"># ${escHtml(ch.name || 'channel')}</div>
-        `).join("")}
-      `;
+      clear(sc);
+
+      sc.appendChild(el("div", { class: "category", text: "Channels" }));
+
+      (data || []).forEach(ch => {
+        const it = el("div", { class: "item", text: "# " + (ch.name || "channel") });
+        it.onclick = () => openChannel(ch.id, ch.name);
+        sc.appendChild(it);
+      });
 
       if (!activeId && data && data[0]) openChannel(data[0].id, data[0].name);
       else if (!activeId) renderPlaceholder("Select a channel.");
     }
 
     function openChannel(channelId, channelName) {
-      activeView = 'chan';
+      activeView = "chan";
       activeId = channelId;
 
-      document.getElementById('chat-header-text').innerText = `# ${channelName || 'channel'}`;
-      document.getElementById('chat-input-area').style.display = 'block';
-      loadMessages();
+      document.getElementById("chat-header-text").innerText = "# " + (channelName || "channel");
+      document.getElementById("chat-input-area").style.display = "block";
 
-      document.querySelectorAll('#side-content .item').forEach(i => i.classList.remove('active'));
-      const items = document.querySelectorAll('#side-content .item');
-      for (const it of items) {
-        if (it.textContent.trim() === `# ${channelName}` || it.textContent.trim() === `#${channelName}`) it.classList.add('active');
-      }
+      updateMembersVisibilityAndContent();
 
+      __forceScrollBottomOnce = true;
+      loadMessages(true);
+
+      document.querySelectorAll("#side-content .item").forEach((i) => i.classList.remove("active"));
+      document.querySelectorAll("#side-content .item").forEach((it) => {
+        const t = it.textContent.trim();
+        if (t === "# " + channelName || t === "#" + channelName) it.classList.add("active");
+      });
+
+      subscribeTyping();
       startPolling();
     }
 
@@ -1355,9 +2768,8 @@
       const newName = document.getElementById("edit-server-name").value.trim();
       if (!newName) return alert("Enter a new name.");
 
-      // Only owner
-      const { data: srv } = await window._sb.from('servers').select('owner_id').eq('id', currentServerId).maybeSingle();
-      if (srv?.owner_id !== user.id) return alert("Only the server owner can edit server settings.");
+      const { data: srv } = await window._sb.from("servers").select("owner_id").eq("id", currentServerId).maybeSingle();
+      if (!srv || srv.owner_id !== user.id) return alert("Only the server owner can edit server settings.");
 
       const { error } = await window._sb.from("servers").update({ name: newName }).eq("id", currentServerId);
       if (error) { console.error(error); alert(error.message); return; }
@@ -1369,65 +2781,60 @@
       if (currentServerId) loadChannels(currentServerId, newName);
     }
 
+    /* ========= MEMBERS RENDER (signature protected) ========= */
     async function loadServerMembers(serverId) {
       await waitForSb();
-      const list = document.getElementById('member-list');
-      list.innerHTML = `<div style="padding:12px; color:var(--muted); font-size:12px;">Loading…</div>`;
+      const panel = membersPanelEl();
+      if (panel && panel.classList.contains("hidden")) return;
 
-      const { data: mem, error: e1 } = await window._sb
-        .from('server_members')
-        .select('user_id')
-        .eq('server_id', serverId);
+      const list = document.getElementById("member-list");
+      list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Loading…</div>';
 
-      if (e1) {
-        console.error(e1);
-        list.innerHTML = `<div style="padding:12px; color:var(--muted); font-size:12px;">Error loading members.</div>`;
-        return;
-      }
+      const { data: mem, error: e1 } = await window._sb.from("server_members").select("user_id").eq("server_id", serverId);
 
-      const ids = Array.from(new Set((mem || []).map(r => r.user_id)));
+      if (e1) { console.error(e1); list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Error loading members.</div>'; return; }
+
+      const ids = Array.from(new Set((mem || []).map((r) => r.user_id)));
       if (ids.length === 0) {
-        list.innerHTML = `<div style="padding:12px; color:var(--muted); font-size:12px;">No members.</div>`;
+        list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">No members.</div>';
         return;
       }
 
-      const { data: profs, error: e2 } = await window._sb
-        .from('profiles')
-        .select('id, username, avatar_url, status')
-        .in('id', ids);
+      const { data: profs, error: e2 } = await window._sb.from("profiles").select("id, username, avatar_url, status, last_seen").in("id", ids);
 
-      if (e2) {
-        console.error(e2);
-        list.innerHTML = `<div style="padding:12px; color:var(--muted); font-size:12px;">Error loading profiles.</div>`;
-        return;
-      }
+      if (e2) { console.error(e2); list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Error loading profiles.</div>'; return; }
 
-      const sorted = (profs || []).sort((a,b) => (a.username||'').localeCompare(b.username||''));
-      list.innerHTML = '';
+      const sorted = (profs || []).sort((a, b) => (a.username || "").localeCompare(b.username || ""));
+
+      const sig = JSON.stringify(sorted.map(p => [p.id, p.username || "", p.avatar_url || "", p.status || "offline", p.last_seen || ""]));
+      if (sig === __memberSig) return;
+      __memberSig = sig;
+
+      list.innerHTML = "";
 
       for (const p of sorted) {
-        const row = document.createElement('div');
-        row.className = 'member-item';
+        const row = document.createElement("div");
+        row.className = "member-item";
         row.onclick = () => openProfile(p.id);
 
-        const ava = document.createElement('div');
-        ava.className = 'member-ava';
-        if (p.avatar_url) ava.style.backgroundImage = `url('${p.avatar_url}')`;
+        const ava = document.createElement("div");
+        ava.className = "member-ava";
+        if (p.avatar_url) ava.style.backgroundImage = "url('" + p.avatar_url + "')";
 
-        const dot = document.createElement('div');
-        dot.className = 'status-dot';
-        dot.style.borderColor = 'var(--side)';
-        dot.style.width = '9px';
-        dot.style.height = '9px';
-        dot.style.borderWidth = '3px';
-        dot.style.right = '-2px';
-        dot.style.bottom = '-2px';
-        dot.style.background = statusColor(p.status || 'offline');
+        const dot = document.createElement("div");
+        dot.className = "status-dot";
+        dot.style.borderColor = "var(--side)";
+        dot.style.width = "9px";
+        dot.style.height = "9px";
+        dot.style.borderWidth = "3px";
+        dot.style.right = "-2px";
+        dot.style.bottom = "-2px";
+        dot.style.background = statusColor(computeLiveStatus(p));
         ava.appendChild(dot);
 
-        const name = document.createElement('div');
-        name.className = 'member-name';
-        name.textContent = p.username || 'User';
+        const name = document.createElement("div");
+        name.className = "member-name";
+        name.textContent = p.username || "User";
 
         row.appendChild(ava);
         row.appendChild(name);
@@ -1435,125 +2842,181 @@
       }
     }
 
-    function showInviteModal() { document.getElementById('invite-modal').style.display='flex'; }
+    async function renderMembersForDmThread(dmId) {
+      await waitForSb();
+      const panel = membersPanelEl();
+      if (panel && panel.classList.contains("hidden")) return;
 
-    async function submitInvite() {
-      alert("Invite flow is not wired yet (needs an invites table + email sending).");
-      document.getElementById('invite-modal').style.display='none';
-      document.getElementById('invite-email').value = "";
+      const list = document.getElementById("member-list");
+      list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Loading…</div>';
+
+      const { data: t, error: e1 } = await window._sb.from("dm_threads").select("id, user1, user2").eq("id", dmId).maybeSingle();
+      if (e1) { console.error(e1); list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Error loading members.</div>'; return; }
+      if (!t) { list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">No members.</div>'; return; }
+
+      const ids = [t.user1, t.user2].filter(Boolean);
+      const { data: profs, error: e2 } = await window._sb.from("profiles").select("id, username, avatar_url, status, last_seen").in("id", ids);
+      if (e2) { console.error(e2); list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Error loading profiles.</div>'; return; }
+
+      const sorted = (profs || []).sort((a, b) => (a.username || "").localeCompare(b.username || ""));
+
+      const sig = JSON.stringify(sorted.map(p => [p.id, p.username || "", p.avatar_url || "", p.status || "offline", p.last_seen || ""]));
+      if (sig === __memberSig) return;
+      __memberSig = sig;
+
+      list.innerHTML = "";
+
+      for (const p of sorted) {
+        const row = document.createElement("div");
+        row.className = "member-item";
+        row.onclick = () => openProfile(p.id);
+
+        const ava = document.createElement("div");
+        ava.className = "member-ava";
+        if (p.avatar_url) ava.style.backgroundImage = "url('" + p.avatar_url + "')";
+
+        const dot = document.createElement("div");
+        dot.className = "status-dot";
+        dot.style.borderColor = "var(--side)";
+        dot.style.width = "9px";
+        dot.style.height = "9px";
+        dot.style.borderWidth = "3px";
+        dot.style.right = "-2px";
+        dot.style.bottom = "-2px";
+        dot.style.background = statusColor(computeLiveStatus(p));
+        ava.appendChild(dot);
+
+        const name = document.createElement("div");
+        name.className = "member-name";
+        name.textContent = p.username || "User";
+
+        row.appendChild(ava);
+        row.appendChild(name);
+        list.appendChild(row);
+      }
     }
 
-    // ---------- PROFILE VIEW ----------
+    function showInviteModal() {
+      const elx = document.getElementById("invite-server-id");
+      elx.value = String(currentServerId || "");
+      document.getElementById("invite-modal").style.display = "flex";
+      try { elx.select(); } catch {}
+    }
+
+    function copyInviteServerId() {
+      const v = document.getElementById("invite-server-id").value;
+      navigator.clipboard.writeText(v);
+      alert("Copied!");
+    }
+
+    /* ========= PROFILE ========= */
     async function openProfile(uid) {
       await waitForSb();
 
       const { data: p, error } = await window._sb
-        .from('profiles')
-        .select('id, username, avatar_url, banner_url, status, theme_color, theme_gradient')
-        .eq('id', uid)
+        .from("profiles")
+        .select("id, username, avatar_url, banner_url, status, last_seen")
+        .eq("id", uid)
         .maybeSingle();
 
       if (error) { console.error(error); return alert("Error loading profile."); }
       if (!p) return;
 
-      // ✅ Banner stays banner (or default dark). NOT themed.
-      const banner = document.getElementById('profile-banner');
-      banner.style.backgroundImage = p.banner_url ? `url('${p.banner_url}')` : 'none';
-      if (!p.banner_url) banner.style.background = '#1e1f22';
+      const banner = document.getElementById("profile-banner");
+      banner.style.backgroundImage = p.banner_url ? "url('" + p.banner_url + "')" : "none";
+      if (!p.banner_url) banner.style.background = "#1e1f22";
 
-      const ava = document.getElementById('profile-avatar');
-      ava.style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : 'none';
+      const ava = document.getElementById("profile-avatar");
+      ava.style.backgroundImage = p.avatar_url ? "url('" + p.avatar_url + "')" : "none";
 
-      document.getElementById('profile-name').innerText = p.username || 'User';
-      document.getElementById('profile-status').innerText = `Status: ${p.status || 'offline'}`;
+      document.getElementById("profile-name").innerText = p.username || "User";
+      document.getElementById("profile-status").innerText = "Status: " + computeLiveStatus(p);
 
-      const sdot = document.getElementById('profile-status-dot');
-      sdot.className = 'status-dot ' + (p.status || 'offline');
+      const sdot = document.getElementById("profile-status-dot");
+      sdot.className = "status-dot " + computeLiveStatus(p);
 
-      // ✅ Apply theme ONLY to profile UI around banner/card
-      const card = document.getElementById('profile-card');
-      let theme = "";
-      if (p.theme_gradient && String(p.theme_gradient).trim()) theme = String(p.theme_gradient).trim();
-      else if (p.theme_color && String(p.theme_color).trim()) theme = String(p.theme_color).trim();
-      else theme = "linear-gradient(135deg, #5865f2, #111214)";
-
-      if (card) {
-        card.style.setProperty("--profile-theme", theme);
-        card.classList.add("themed");
-      }
-
-      const actions = document.getElementById('profile-actions');
-      actions.innerHTML = '';
+      const actions = document.getElementById("profile-actions");
+      actions.innerHTML = "";
 
       if (p.id === user.id) {
-        const editBtn = document.createElement('button');
-        editBtn.className = 'mini-btn';
-        editBtn.textContent = 'Edit My Profile';
+        const editBtn = document.createElement("button");
+        editBtn.className = "mini-btn";
+        editBtn.textContent = "Edit My Profile";
         editBtn.onclick = () => {
-          document.getElementById('profile-modal').style.display = 'none';
-          document.getElementById('user-settings-modal').style.display = 'flex';
+          document.getElementById("profile-modal").style.display = "none";
+          document.getElementById("user-settings-modal").style.display = "flex";
         };
         actions.appendChild(editBtn);
       } else {
-        const dmBtn = document.createElement('button');
-        dmBtn.className = 'mini-btn';
-        dmBtn.textContent = 'Message';
+        const dmBtn = document.createElement("button");
+        dmBtn.className = "mini-btn";
+        dmBtn.textContent = "Message";
         dmBtn.onclick = () => openDmWith(p.id, p.username);
         actions.appendChild(dmBtn);
+
+        const rmBtn = document.createElement("button");
+        rmBtn.className = "mini-btn";
+        rmBtn.textContent = "Remove Friend";
+        rmBtn.onclick = () => removeFriend(p.id);
+        actions.appendChild(rmBtn);
       }
 
-      document.getElementById('profile-modal').style.display = 'flex';
+      document.getElementById("profile-modal").style.display = "flex";
     }
 
-    // ---------- STATUS / UI ----------
-    async function setStatus(s, up = true) {
+    /* ========= STATUS ========= */
+    async function setStatus(s, up) {
+      if (up === void 0) up = true;
       await waitForSb();
-      document.getElementById('my-status-dot').className = 'status-dot ' + s;
+
+      document.getElementById("my-status-dot").className = "status-dot " + s;
+
       if (up) {
         profile.status = s;
-        const { error } = await window._sb.from('profiles').update({ status: s }).eq('id', user.id);
+        const { error } = await window._sb.from("profiles").update({ status: s, last_seen: new Date().toISOString() }).eq("id", user.id);
         if (error) console.error(error);
       }
-      document.getElementById('status-picker').style.display = 'none';
+
+      document.getElementById("status-picker").style.display = "none";
     }
 
     function toggleStatusPicker(e) {
       e.stopPropagation();
-      const p = document.getElementById('status-picker');
-      p.style.display = (p.style.display === 'block' ? 'none' : 'block');
-      p.style.bottom = '60px';
-      p.style.left = '10px';
+      const p = document.getElementById("status-picker");
+      p.style.display = p.style.display === "block" ? "none" : "block";
+      // clamp-ish near footer
+      clampMenuToViewport(p, 10, window.innerHeight - 70);
     }
 
+    /* ========= POPUPS / MODALS ========= */
     function hideAllPopups() {
-      ['msg-menu', 'status-picker', 'server-rail-menu'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.style.display='none';
+      ["msg-menu", "status-picker", "server-rail-menu"].forEach((id) => {
+        const elx = document.getElementById(id);
+        if (elx) elx.style.display = "none";
       });
     }
 
     function closeModals(e) {
-      if(e.target.classList.contains('modal-overlay')) e.target.style.display='none';
+      if (e.target.classList.contains("modal-overlay")) e.target.style.display = "none";
     }
 
-    document.getElementById('mIn').onkeydown = (e) => { if(e.key === 'Enter') send(); };
-
+    /* ========= SEARCH ========= */
     function handleSearch(val) {
       searchTerm = (val || "").toLowerCase();
-      if (activeView === 'dm' && activeId === null) { renderFriendsPanel(); return; }
-      loadMessages();
+      if (activeView === "dm" && activeId === null) {
+        renderFriendsPanel();
+        return;
+      }
+      loadMessages(false);
     }
 
+    /* ========= SETTINGS ========= */
     async function saveUserSettings() {
       await waitForSb();
-      const u = document.getElementById('user-settings-name').value.trim();
-      const a = document.getElementById('user-settings-avatar').value.trim();
-      const b = document.getElementById('user-settings-banner').value.trim();
 
-      const picker = document.getElementById('user-settings-theme-color-picker');
-      const tc = picker ? String(picker.value || "").trim() : "";
-
-      const tg = document.getElementById('user-settings-theme-gradient').value.trim();
+      const u = document.getElementById("user-settings-name").value.trim();
+      const a = document.getElementById("user-settings-avatar").value.trim();
+      const b = document.getElementById("user-settings-banner").value.trim();
 
       if (!u) return alert("Username cannot be empty.");
 
@@ -1562,15 +3025,54 @@
         username: u,
         avatar_url: a || null,
         banner_url: b || null,
-        status: profile.status || 'online',
-        theme_color: tc || null,
-        theme_gradient: tg || null
+        status: profile.status || "online",
+        last_seen: new Date().toISOString()
       };
 
-      const { error } = await window._sb.from('profiles').upsert(payload);
+      const { error } = await window._sb.from("profiles").upsert(payload);
       if (error) { console.error(error); alert(error.message); return; }
-      location.reload();
+
+      // update UI WITHOUT reload
+      profile.username = payload.username;
+      profile.avatar_url = payload.avatar_url;
+      profile.banner_url = payload.banner_url;
+
+      document.getElementById("my-name").innerText = profile.username || "User";
+      document.getElementById("my-avatar-img").style.backgroundImage = profile.avatar_url ? "url('" + profile.avatar_url + "')" : "none";
+
+      document.getElementById("user-settings-modal").style.display = "none";
+
+      // refresh views that depend on avatars/usernames
+      refreshDmListOrdering(true);
+      if (activeView === "dm" && activeId === null) renderFriendsPanel();
+      else loadMessages(false);
     }
+
+    /* ========= INPUT EVENTS ========= */
+    document.getElementById("mIn").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") send();
+      if (e.key === "Escape") {
+        cancelReply();
+        e.target.blur();
+      }
+    });
+
+    document.getElementById("mIn").addEventListener("input", () => {
+      if (typingTimer) clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => upsertTyping(), 150);
+    });
+
+    document.getElementById("mIn").addEventListener("blur", () => {
+      deleteMyTyping();
+    });
+
+    /* ========= DEFAULT: suppress native context menu (you still get text selection) ========= */
+    document.addEventListener("contextmenu", (e) => {
+      // allow inputs/textarea selection menus
+      const t = e.target;
+      const isEditable = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (!isEditable) e.preventDefault();
+    });
   </script>
 </body>
 </html>
