@@ -8,17 +8,16 @@
   <!-- Emoji Mart vanilla build (picker) -->
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
 
-<script>
-(function loadSupabase() {
-  const s = document.createElement("script");
-  s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
-  s.crossOrigin = "anonymous";
-  s.onload = () => console.log("✅ Supabase loaded");
-  s.onerror = () => console.error("❌ Supabase failed to load");
-  document.head.appendChild(s);
-})();
-</script>
-
+  <script>
+  (function loadSupabase() {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+    s.crossOrigin = "anonymous";
+    s.onload = () => console.log("✅ Supabase loaded");
+    s.onerror = () => console.error("❌ Supabase failed to load");
+    document.head.appendChild(s);
+  })();
+  </script>
 
   <style>
     @import url("https://fonts.cdnfonts.com/css/gg-sans");
@@ -239,7 +238,6 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      /* allow selection */
       user-select: text;
     }
 
@@ -249,7 +247,6 @@
       padding: 4px 8px;
       border-radius: 4px;
       position: relative;
-      /* allow selection */
       user-select: text;
     }
 
@@ -556,7 +553,7 @@
       background: #1e1f22;
       background-size: cover;
       background-position: center;
-      background-repeat: no-repeat; /* fixes tiling/looping */
+      background-repeat: no-repeat;
       margin-bottom: 12px;
       border: 1px solid rgba(255,255,255,0.08);
     }
@@ -603,12 +600,10 @@
     }
     .reaction-pill.me { border-color: rgba(88,101,242,0.6); background: rgba(88,101,242,0.18); }
 
-    /* hide the always-visible "+" add; we now show actions on hover */
     .reaction-add { display:none !important; }
 
     .tag-edited { font-size: 11px; color: var(--muted); font-weight: 600; user-select: none; }
 
-    /* message hover actions (3 dots + reaction) */
     .msg-actions {
       position: absolute;
       right: 8px;
@@ -640,7 +635,6 @@
     }
     .act-btn:hover { background: rgba(255,255,255,0.12); }
 
-    /* DM conversation list */
     .dm-row {
       display:flex;
       align-items:center;
@@ -703,7 +697,8 @@
         <h2 style="text-align:center;margin:0 0 12px 0">Chat Login</h2>
         <input type="email" id="email" placeholder="Email" autocomplete="email" />
         <input type="password" id="pass" placeholder="Password" autocomplete="current-password" />
-        <button class="btn-brand" onclick="handleAuth()">Join Chat</button>
+        <!-- ✅ REMOVED: inline onclick (this was the "one thing" removed) -->
+        <button class="btn-brand" id="auth-btn">Join Chat</button>
       </div>
     </div>
   </div>
@@ -1034,25 +1029,17 @@
       if (__pollTimer) clearInterval(__pollTimer);
       __pollTimer = setInterval(async function () {
         if (isEditing) return;
-        // avoid hammering side panes causing flash
         if (activeView === "pending") {
           await updatePendingBadge();
           return;
         }
-
-        // friends panel is not messages; don't poll messages there
         if (activeView === "dm" && activeId === null) {
           await updatePendingBadge();
           await refreshDmListOrdering();
           return;
         }
-
         await updatePendingBadge();
-
-        // reduce flashing by not forcing full rebuild if unchanged
         loadMessages(false);
-
-        // keep DM list ordering updated without flashing
         if (activeView === "dm") await refreshDmListOrdering();
       }, 2000);
     }
@@ -1201,16 +1188,14 @@
       mi.setAttribute("autocomplete", "off");
       mi.value = "";
 
-      // enter key submits in modals (friend add, join, create, server name, settings)
       wireEnterKeyForModals();
 
-      // emoji picker init
+      // emoji picker init (now safe even if emoji-mart fails)
       initEmojiPicker();
 
       await updatePendingBadge();
       await loadServers();
 
-      // show DM view shell + DM conversations list
       switchView("dm");
       startPolling();
     }
@@ -1239,6 +1224,14 @@
       const wrap = document.getElementById("emoji-picker-wrap");
       if (!wrap) return;
       wrap.innerHTML = "";
+
+      // ✅ NEW: if EmojiMart didn't load, don't crash the whole app
+      if (!window.EmojiMart || !window.EmojiMart.Picker) {
+        wrap.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Emoji picker unavailable (EmojiMart failed to load).</div>';
+        console.warn("EmojiMart not loaded; skipping picker init.");
+        return;
+      }
+
       try {
         new EmojiMart.Picker({
           parent: wrap,
@@ -1251,14 +1244,12 @@
             const chosen = emoji && emoji.native ? emoji.native : null;
             if (!chosen) return;
 
-            // target reaction or insert into input
             if (__emojiTarget && __emojiTarget.type === "reaction") {
               toggleReaction(__emojiTarget.messageId, chosen);
               document.getElementById("emoji-modal").style.display = "none";
               __emojiTarget = null;
               return;
             }
-            // default: insert into message input
             const inp = document.getElementById("mIn");
             if (inp) inp.value = (inp.value || "") + chosen;
             document.getElementById("emoji-modal").style.display = "none";
@@ -1266,6 +1257,7 @@
         });
       } catch (e) {
         console.error(e);
+        wrap.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Emoji picker failed to initialize.</div>';
       }
     }
 
@@ -1439,15 +1431,12 @@
       const sc = document.getElementById("side-content");
 
       if (view === "dm" || view === "notes" || view === "pending") {
-        // IMPORTANT: don't wipe activeId if user is opening a dm thread
         if (view === "dm" && (id === null || id === undefined)) activeId = null;
 
         document.getElementById("dm-rail-btn").classList.add("active");
         document.getElementById("side-title").innerText = "Direct Messages";
 
         clear(sc);
-
-        // ✅ FIX: sidebar got rebuilt (new container), so force DM list to render into it
         __dmListSig = "";
 
         const cat = el("div", { class: "category" });
@@ -1458,7 +1447,6 @@
         cat.appendChild(catPlus);
         sc.appendChild(cat);
 
-        // Main nav items
         function addItem(label, v, opts) {
           const it = el("div", { class: "item" + (view === v ? " active" : "") });
           it.appendChild(el("span", { text: label }));
@@ -1474,17 +1462,14 @@
         addItem("Pending", "pending", { badgeId: "pending-badge" });
         addItem("Notes", "notes");
 
-        // Conversations list container (DM threads) - always visible in DM section
         const convCat = el("div", { class: "category", text: "Conversations" });
         sc.appendChild(convCat);
         const convWrap = el("div", { });
         convWrap.setAttribute("data-dm-convos", "1");
         sc.appendChild(convWrap);
 
-        // Members visibility
         updateMembersVisibilityAndContent();
 
-        // Input area hidden for friends list/pending; shown for notes and actual dm thread
         const input = document.getElementById("chat-input-area");
         input.style.display = (view === "pending" || (view === "dm" && activeId === null)) ? "none" : "block";
 
@@ -1494,9 +1479,7 @@
           deleteMyTyping();
           clearTypingSub();
 
-          // ✅ FIX: make sure conv list is immediately populated in the new container
           refreshDmListOrdering(true);
-
           updatePendingBadge();
           return;
         }
@@ -1505,7 +1488,6 @@
         if (view === "pending") loadPendingRequests();
         else loadMessages(true);
 
-        // ✅ FIX: same reason—new sidebar container
         refreshDmListOrdering(true);
 
         subscribeTyping();
@@ -1544,11 +1526,10 @@
       if (ctxKey === __lastMemberCtx && activeView !== "chan" && activeView !== "dm") return;
       __lastMemberCtx = ctxKey;
 
-      // hide when not in a chat
       const shouldShow =
         (activeView === "chan" && activeId) ||
         (activeView === "dm" && activeId) ||
-        (activeView === "server" && currentServerId && activeId); // server will open a channel anyway
+        (activeView === "server" && currentServerId && activeId);
 
       if (!shouldShow) {
         panel.classList.add("hidden");
@@ -1557,7 +1538,6 @@
 
       panel.classList.remove("hidden");
 
-      // render members for current context
       if (activeView === "chan" && activeId) {
         loadServerMembers(currentServerId);
         return;
@@ -1673,7 +1653,6 @@
       await waitForSb();
       if (!confirm("Remove this friend?")) return;
 
-      // remove friend_requests accepted in either direction
       const { error: e1 } = await window._sb
         .from("friend_requests")
         .delete()
@@ -1684,7 +1663,6 @@
 
       if (e1) { console.error(e1); alert(e1.message); return; }
 
-      // remove DM thread (best effort)
       const a = user.id, b = friendId;
       const user1 = a < b ? a : b;
       const user2 = a < b ? b : a;
@@ -1752,33 +1730,21 @@
       await waitForSb();
       if (!user) return;
 
-      const { data, error } = await window._sb
+      const badge = document.getElementById("pending-badge");
+      if (!badge) return;
+
+      // simpler + reliable
+      const { data: rows, error } = await window._sb
         .from("friend_requests")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .eq("to_user_id", user.id)
         .eq("status", "pending");
 
       if (error) { console.error(error); return; }
 
-      const badge = document.getElementById("pending-badge");
-      if (!badge) return;
-
-      const count = (data && data.length) ? data.length : (typeof error === "object" ? 0 : 0);
-      // supabase head: true returns data as null, count accessible via response in some builds; fall back query without head
-      if (badge && (count === 0 || count == null)) {
-        const { data: rows } = await window._sb
-          .from("friend_requests")
-          .select("id")
-          .eq("to_user_id", user.id)
-          .eq("status", "pending");
-        const n = (rows || []).length;
-        badge.textContent = String(n);
-        badge.style.display = n > 0 ? "inline-flex" : "none";
-        return;
-      }
-
-      badge.textContent = String(count || 0);
-      badge.style.display = (count || 0) > 0 ? "inline-flex" : "none";
+      const n = (rows || []).length;
+      badge.textContent = String(n);
+      badge.style.display = n > 0 ? "inline-flex" : "none";
     }
 
     async function loadPendingRequests() {
@@ -2060,7 +2026,6 @@
     async function loadDmThreadsPanel(container) {
       await waitForSb();
 
-      // only render in DM nav
       const { data: threads, error: e1 } = await window._sb
         .from("dm_threads")
         .select("id, user1, user2")
@@ -2071,7 +2036,6 @@
       const list = threads || [];
       if (!list.length) {
         const sig = "empty";
-        // ✅ FIX: if container is new/empty, render even if sig matches
         if (sig === __dmListSig && container.innerHTML.trim().length > 0) return;
         __dmListSig = sig;
         container.innerHTML = '<div style="padding:10px 16px;color:var(--muted);font-size:12px">No conversations yet.</div>';
@@ -2080,7 +2044,6 @@
 
       const dmIds = list.map(t => t.id);
 
-      // latest messages for each dm
       const { data: msgs, error: e2 } = await window._sb
         .from("messages")
         .select("id, dm_id, user_id, content, created_at")
@@ -2106,14 +2069,12 @@
 
       const profById = Object.fromEntries((profs || []).map(p => [p.id, p]));
 
-      // sort by latest message time desc; if no messages, put at bottom
       const sorted = list.slice().sort((a, b) => {
         const la = latestByDm[a.id]?.created_at ? new Date(latestByDm[a.id].created_at).getTime() : 0;
         const lb = latestByDm[b.id]?.created_at ? new Date(latestByDm[b.id].created_at).getTime() : 0;
         return lb - la;
       });
 
-      // signature to prevent flashing
       const sigObj = sorted.map(t => {
         const other = (t.user1 === user.id ? t.user2 : t.user1);
         const p = profById[other] || {};
@@ -2123,11 +2084,9 @@
       });
       const sig = JSON.stringify(sigObj);
 
-      // ✅ FIX: if container is new/empty, render even if sig matches
       if (sig === __dmListSig && container.innerHTML.trim().length > 0) return;
       __dmListSig = sig;
 
-      // render
       container.innerHTML = "";
       for (const t of sorted) {
         const other = (t.user1 === user.id ? t.user2 : t.user1);
@@ -2223,7 +2182,7 @@
       openDmThreadById(thread.id, friendId, friendUsername);
     }
 
-    /* ========= LOAD MESSAGES (uses current profile avatars; preserves scroll) ========= */
+    /* ========= LOAD MESSAGES ========= */
     async function loadMessages(forceScrollBottom) {
       await waitForSb();
 
@@ -2251,7 +2210,6 @@
       const filtered = (data || []).filter((m) => String(m.content || "").toLowerCase().includes(searchTerm));
       const ids = filtered.map(m => m.id);
 
-      // gather profiles for all message users + reply users
       const userIds = new Set(filtered.map(m => m.user_id));
       for (const m of filtered) {
         if (m.reply_msg && m.reply_msg.user_id) userIds.add(m.reply_msg.user_id);
@@ -2272,7 +2230,6 @@
       renderMessages(filtered, profById, !!forceScrollBottom || __forceScrollBottomOnce);
       __forceScrollBottomOnce = false;
 
-      // update DM list ordering after messages load
       if (activeView === "dm") refreshDmListOrdering(true);
     }
 
@@ -2281,15 +2238,13 @@
       return (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight) < slack;
     }
 
-    /* ========= MESSAGES RENDER ========= */
     function renderMessages(list, profById, forceBottom) {
       const wrap = document.getElementById("msgs");
       const stick = forceBottom || isNearBottom(wrap);
 
-      // build signature so we can skip DOM rebuild if unchanged (reduces flashing)
       const sig = JSON.stringify(list.map(m => [m.id, m.content, m.is_edited, m.created_at]));
       if (sig === __lastRenderedSig && !forceBottom) {
-        // still ensure reactions update; easiest is to continue
+        // continue anyway for reaction updates
       } else {
         __lastRenderedSig = sig;
       }
@@ -2306,7 +2261,6 @@
           }
         });
 
-        // hover actions (reaction + menu)
         const actions = el("div", { class: "msg-actions" });
         const reactBtn = el("div", { class: "act-btn", text: "😀", title: "React" });
         reactBtn.onclick = (e) => { e.stopPropagation(); openEmojiPickerForReaction(m.id); };
@@ -2314,7 +2268,6 @@
         const moreBtn = el("div", { class: "act-btn", text: "⋯", title: "More" });
         moreBtn.onclick = (e) => {
           e.stopPropagation();
-          // open msg menu near button
           const rect = moreBtn.getBoundingClientRect();
           showMsgMenu({ preventDefault(){}, clientX: rect.left, clientY: rect.bottom, stopPropagation(){}, }, m.id, m.user_id, m.content, p.username || "User");
         };
@@ -2401,7 +2354,6 @@
       const inp = document.getElementById("mIn");
       if (!inp.value.trim()) return;
 
-      // fetch current profile avatar at send time (NOT from messages table)
       const { data: myp } = await window._sb
         .from("profiles")
         .select("username, avatar_url")
@@ -2566,7 +2518,7 @@
       hideAllPopups();
     }
 
-    /* ========= SERVERS / CHANNELS (DOM-built; no string quoting) ========= */
+    /* ========= SERVERS / CHANNELS ========= */
     async function loadServers() {
       await waitForSb();
 
@@ -2644,50 +2596,45 @@
       setTimeout(() => document.getElementById("join-server-id").focus(), 0);
     }
 
-async function submitJoinServer() {
-  await waitForSb();
+    async function submitJoinServer() {
+      await waitForSb();
 
-  const raw = document.getElementById("join-server-id").value.trim();
-  if (!raw) return alert("Paste a server ID.");
+      const raw = document.getElementById("join-server-id").value.trim();
+      if (!raw) return alert("Paste a server ID.");
 
-  // int8/bigint: keep as STRING (safe), but validate it's digits
-  if (!/^\d+$/.test(raw)) return alert("Server ID must be digits (int8).");
+      if (!/^\d+$/.test(raw)) return alert("Server ID must be digits (int8).");
 
-  // 1) Try to join FIRST (no need to read servers table yet)
-  const { error: joinErr } = await window._sb
-    .from("server_members")
-    .insert([{ server_id: raw, user_id: user.id }]);
+      const { error: joinErr } = await window._sb
+        .from("server_members")
+        .insert([{ server_id: raw, user_id: user.id }]);
 
-  if (joinErr) {
-    const msg = String(joinErr.message || "").toLowerCase();
+      if (joinErr) {
+        const msg = String(joinErr.message || "").toLowerCase();
+        if (msg.includes("duplicate") || msg.includes("unique")) {
+          // ok
+        } else if (msg.includes("foreign key") || msg.includes("violates foreign key")) {
+          return alert("Server not found (no server with that ID).");
+        } else {
+          console.error(joinErr);
+          return alert(joinErr.message);
+        }
+      }
 
-    // already a member
-    if (msg.includes("duplicate") || msg.includes("unique")) {
-      // continue to open server below
-    } else if (msg.includes("foreign key") || msg.includes("violates foreign key")) {
-      return alert("Server not found (no server with that ID).");
-    } else {
-      console.error(joinErr);
-      return alert(joinErr.message);
+      const { data: srv, error: e1 } = await window._sb
+        .from("servers")
+        .select("id, name")
+        .eq("id", raw)
+        .maybeSingle();
+
+      if (e1) { console.error(e1); return alert(e1.message); }
+      if (!srv) return alert("Joined, but couldn't load server details. Refresh the page.");
+
+      document.getElementById("join-server-modal").style.display = "none";
+      document.getElementById("join-server-id").value = "";
+
+      await loadServers();
+      switchView("server", srv.id, srv.name);
     }
-  }
-
-  // 2) Now that you're a member, SELECT will pass RLS
-  const { data: srv, error: e1 } = await window._sb
-    .from("servers")
-    .select("id, name")
-    .eq("id", raw)
-    .maybeSingle();
-
-  if (e1) { console.error(e1); return alert(e1.message); }
-  if (!srv) return alert("Joined, but couldn't load server details. Refresh the page.");
-
-  document.getElementById("join-server-modal").style.display = "none";
-  document.getElementById("join-server-id").value = "";
-
-  await loadServers();
-  switchView("server", srv.id, srv.name);
-}
 
     async function submitCreateServer() {
       await waitForSb();
@@ -2781,7 +2728,7 @@ async function submitJoinServer() {
       if (currentServerId) loadChannels(currentServerId, newName);
     }
 
-    /* ========= MEMBERS RENDER (signature protected) ========= */
+    /* ========= MEMBERS RENDER ========= */
     async function loadServerMembers(serverId) {
       await waitForSb();
       const panel = membersPanelEl();
@@ -2984,7 +2931,6 @@ async function submitJoinServer() {
       e.stopPropagation();
       const p = document.getElementById("status-picker");
       p.style.display = p.style.display === "block" ? "none" : "block";
-      // clamp-ish near footer
       clampMenuToViewport(p, 10, window.innerHeight - 70);
     }
 
@@ -3032,7 +2978,6 @@ async function submitJoinServer() {
       const { error } = await window._sb.from("profiles").upsert(payload);
       if (error) { console.error(error); alert(error.message); return; }
 
-      // update UI WITHOUT reload
       profile.username = payload.username;
       profile.avatar_url = payload.avatar_url;
       profile.banner_url = payload.banner_url;
@@ -3042,7 +2987,6 @@ async function submitJoinServer() {
 
       document.getElementById("user-settings-modal").style.display = "none";
 
-      // refresh views that depend on avatars/usernames
       refreshDmListOrdering(true);
       if (activeView === "dm" && activeId === null) renderFriendsPanel();
       else loadMessages(false);
@@ -3066,12 +3010,46 @@ async function submitJoinServer() {
       deleteMyTyping();
     });
 
-    /* ========= DEFAULT: suppress native context menu (you still get text selection) ========= */
+    /* ========= DEFAULT: suppress native context menu ========= */
     document.addEventListener("contextmenu", (e) => {
-      // allow inputs/textarea selection menus
       const t = e.target;
       const isEditable = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       if (!isEditable) e.preventDefault();
+    });
+
+    /* ========= NEW: wire auth button (replaces inline onclick) ========= */
+    (function wireAuthButton() {
+      const btn = document.getElementById("auth-btn");
+      if (!btn) return;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        handleAuth();
+      });
+    })();
+
+    /* ========= NEW: expose functions used by inline onclick attributes ========= */
+    Object.assign(window, {
+      // auth
+      handleAuth, handleLogout,
+
+      // ui/modals
+      hideAllPopups, closeModals, toggleStatusPicker, setStatus,
+
+      // navigation
+      switchView, openPlusMenu, openCreateServer, openJoinServer,
+
+      // friends/dms
+      submitAddFriend, openDmWith,
+
+      // servers
+      submitJoinServer, submitCreateServer, openServerSettings, deleteServer, showInviteModal, copyInviteServerId, updateServerName,
+
+      // chat/actions
+      handleSearch, uploadImage, send,
+      startReply, cancelReply, startEdit, viewEditHistory, copyMsgText, deleteCurrentMsg,
+
+      // profile
+      openProfile
     });
   </script>
 </body>
